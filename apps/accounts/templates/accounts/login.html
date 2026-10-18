@@ -1,0 +1,18 @@
+{% extends "accounts/base_auth.html" %}
+{% block title %}Вход{% endblock %}
+{% block content %}
+  <h1>Вход</h1>
+  <p class="lead">Введите email и пароль.</p>
+  <form method="post" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="alert" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+    {% for field in form %}{% include "accounts/_field.html" %}{% endfor %}
+    <input type="hidden" name="next" value="{{ next }}">
+    <button class="btn" type="submit">Войти</button>
+  </form>
+  <div class="links">
+    <a href="{% url 'accounts:password_reset' %}">Забыли пароль?</a>
+    <a href="{% url 'accounts:register' %}">Создать аккаунт</a>
+    <a href="{% url 'accounts:resend_verification' %}">Не пришло письмо подтверждения</a>
+  </div>
+{% endblock %}

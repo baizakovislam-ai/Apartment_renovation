@@ -1,0 +1,13 @@
+{% extends "accounts/base_auth.html" %}
+{% block title %}Подтверждение email{% endblock %}
+{% block content %}
+  {% if ok %}
+    <h1>Email подтверждён</h1>
+    <p class="lead">Теперь вы можете войти в систему.</p>
+    <a class="btn" href="{% url 'accounts:login' %}">Войти</a>
+  {% else %}
+    <h1>Ссылка недействительна</h1>
+    <p class="lead">Ссылка устарела или уже была использована. Запросите новое письмо.</p>
+    <a class="btn" href="{% url 'accounts:resend_verification' %}">Отправить письмо ещё раз</a>
+  {% endif %}
+{% endblock %}

@@ -1,0 +1,14 @@
+{% extends "accounts/base_auth.html" %}
+{% block title %}Профиль{% endblock %}
+{% block content %}
+  <h1>Здравствуйте, {{ user.get_short_name }}</h1>
+  <dl class="profile">
+    <dt>ФИО</dt><dd>{{ user.full_name }}</dd>
+    <dt>Email</dt><dd>{{ user.email }}</dd>
+    <dt>Дата регистрации</dt><dd>{{ user.date_joined|date:"d.m.Y H:i" }}</dd>
+  </dl>
+  <form method="post" action="{% url 'accounts:logout' %}">
+    {% csrf_token %}
+    <button class="btn secondary" type="submit">Выйти</button>
+  </form>
+{% endblock %}
