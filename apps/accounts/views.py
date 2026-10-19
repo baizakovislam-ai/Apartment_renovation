@@ -1,14 +1,30 @@
+import logging
+import smtplib
+
 from django.contrib.auth import views as auth_views
 from django.contrib.auth.decorators import login_required
+from django.contrib import messages
 from django.shortcuts import redirect, render
 from django.urls import reverse_lazy
-from django.utils.http import urlsafe_base64_decode
 from django.views.generic import FormView
 
-from .forms import LoginForm, RegisterForm, ResendVerificationForm
+from .forms import (
+    LoginForm,
+    PasswordResetCodeForm,
+    PasswordResetRequestForm,
+    RegisterForm,
+    ResendVerificationForm,
+    VerifyEmailForm,
+)
 from .models import User
-from .services import send_verification_email
-from .tokens import email_verification_token
+from .services import (
+    reset_password_with_code,
+    send_password_reset_code,
+    send_verification_email,
+    verify_email_code,
+)
+
+logger = logging.getLogger(__name__)
 
 
 class RegisterView(FormView):
@@ -23,7 +39,15 @@ class RegisterView(FormView):
 
     def form_valid(self, form):
         user = form.save()
-        send_verification_email(self.request, user)
+        try:
+            send_verification_email(user)
+        except (smtplib.SMTPException, OSError):
+            logger.exception("Verification email delivery failed for user id %s", user.pk)
+            messages.error(
+                self.request,
+                "Аккаунт создан, но отправить код не удалось. Проверьте настройки почты "
+                "и запросите код повторно.",
+            )
         return super().form_valid(form)
 
 
@@ -31,17 +55,21 @@ def check_email(request):
     return render(request, "accounts/check_email.html")
 
 
-def verify_email(request, uidb64, token):
-    user = None
-    try:
-        user = User.objects.get(pk=urlsafe_base64_decode(uidb64).decode())
-    except (TypeError, ValueError, OverflowError, User.DoesNotExist):
-        pass
-    ok = bool(user and email_verification_token.check_token(user, token))
-    if ok:
-        user.is_email_verified = True
-        user.save(update_fields=["is_email_verified"])
-    return render(request, "accounts/verify_result.html", {"ok": ok}, status=200 if ok else 400)
+class VerifyEmailView(FormView):
+    template_name = "accounts/verify_email.html"
+    form_class = VerifyEmailForm
+    success_url = reverse_lazy("accounts:login")
+
+    def form_valid(self, form):
+        user = User.objects.filter(
+            email__iexact=form.cleaned_data["email"].strip(),
+            is_active=True,
+            is_email_verified=False,
+        ).first()
+        if not user or not verify_email_code(user, form.cleaned_data["code"]):
+            form.add_error("code", "Код недействителен или истёк. Запросите новый код.")
+            return self.form_invalid(form)
+        return render(self.request, "accounts/verify_result.html", {"ok": True})
 
 
 class ResendVerificationView(FormView):
@@ -54,7 +82,15 @@ class ResendVerificationView(FormView):
         user = User.objects.filter(email__iexact=form.cleaned_data["email"].strip(), is_active=True,
                                    is_email_verified=False).first()
         if user:
-            send_verification_email(self.request, user)
+            try:
+                send_verification_email(user)
+            except (smtplib.SMTPException, OSError):
+                logger.exception("Verification email resend failed for user id %s", user.pk)
+        messages.info(
+            self.request,
+            "Если этот адрес зарегистрирован и почта доступна, код будет отправлен. "
+            "Если письмо не придёт, проверьте настройки почты.",
+        )
         return super().form_valid(form)
 
 
@@ -75,20 +111,50 @@ def profile(request):
 
 
 # ---- Восстановление пароля (встроенные представления Django) ----
-class PasswordResetView(auth_views.PasswordResetView):
+class PasswordResetView(FormView):
     template_name = "accounts/password_reset_form.html"
-    email_template_name = "accounts/emails/password_reset_email.txt"
-    subject_template_name = "accounts/emails/password_reset_subject.txt"
+    form_class = PasswordResetRequestForm
     success_url = reverse_lazy("accounts:password_reset_done")
+
+    def form_valid(self, form):
+        user = User.objects.filter(
+            email__iexact=form.cleaned_data["email"].strip(),
+            is_active=True,
+        ).first()
+        if user and user.has_usable_password():
+            try:
+                send_password_reset_code(user)
+            except (smtplib.SMTPException, OSError):
+                logger.exception("Password reset email delivery failed for user id %s", user.pk)
+        return super().form_valid(form)
 
 
 class PasswordResetDoneView(auth_views.PasswordResetDoneView):
     template_name = "accounts/password_reset_done.html"
 
 
-class PasswordResetConfirmView(auth_views.PasswordResetConfirmView):
+class PasswordResetConfirmView(FormView):
+    form_class = PasswordResetCodeForm
     template_name = "accounts/password_reset_confirm.html"
     success_url = reverse_lazy("accounts:password_reset_complete")
+
+    def form_valid(self, form):
+        user = User.objects.filter(
+            email__iexact=form.cleaned_data["email"].strip(),
+            is_active=True,
+        ).first()
+        if (
+            not user
+            or not user.has_usable_password()
+            or not reset_password_with_code(
+                user,
+                form.cleaned_data["code"],
+                form.cleaned_data["new_password1"],
+            )
+        ):
+            form.add_error("code", "Код недействителен или истёк. Запросите новый код.")
+            return self.form_invalid(form)
+        return super().form_valid(form)
 
 
 class PasswordResetCompleteView(auth_views.PasswordResetCompleteView):

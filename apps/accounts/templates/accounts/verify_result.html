@@ -6,8 +6,8 @@
     <p class="lead">Теперь вы можете войти в систему.</p>
     <a class="btn" href="{% url 'accounts:login' %}">Войти</a>
   {% else %}
-    <h1>Ссылка недействительна</h1>
-    <p class="lead">Ссылка устарела или уже была использована. Запросите новое письмо.</p>
-    <a class="btn" href="{% url 'accounts:resend_verification' %}">Отправить письмо ещё раз</a>
+    <h1>Код недействителен</h1>
+    <p class="lead">Код устарел или уже был использован. Запросите новый код.</p>
+    <a class="btn" href="{% url 'accounts:resend_verification' %}">Отправить код ещё раз</a>
   {% endif %}
 {% endblock %}

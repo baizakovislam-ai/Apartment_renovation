@@ -33,9 +33,11 @@ ALLOWED_HOSTS = [
     "127.0.0.1",
     "localhost",
     "0594-95-87-64-161.ngrok-free.app",
+    *filter(None, (host.strip() for host in os.getenv("ALLOWED_HOSTS", "").split(","))),
 ]
 CSRF_TRUSTED_ORIGINS = [
     "https://0594-95-87-64-161.ngrok-free.app",
+    *filter(None, (origin.strip() for origin in os.getenv("CSRF_TRUSTED_ORIGINS", "").split(","))),
 ]
 
 # Application definition
@@ -180,8 +182,14 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
 
-# Срок действия ссылок подтверждения email и сброса пароля, секунд (24 часа)
+# Срок действия встроенных токенов сброса пароля (для совместимости со старыми ссылками)
 PASSWORD_RESET_TIMEOUT = 60 * 60 * 24
+PASSWORD_RESET_CODE_TTL = 10 * 60
+PASSWORD_RESET_CODE_MAX_ATTEMPTS = 5
+PASSWORD_RESET_CODE_RESEND_COOLDOWN = 60
+EMAIL_VERIFICATION_CODE_TTL = 10 * 60
+EMAIL_VERIFICATION_MAX_ATTEMPTS = 5
+EMAIL_VERIFICATION_RESEND_COOLDOWN = 60
 
 # Ограничение попыток входа (ТЗ п. 4.17)
 LOGIN_MAX_ATTEMPTS = 5
