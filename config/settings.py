@@ -10,10 +10,14 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.1/ref/settings/
 """
 
+import os
 from pathlib import Path
+
+from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+load_dotenv(BASE_DIR / ".env")
 
 
 # Quick-start development settings - unsuitable for production
@@ -138,12 +142,19 @@ STATIC_URL = 'static/'
 
 # Email
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
-
-MAILERS = {
-    'default': {
-        'BACKEND': 'django.core.mail.backends.console.EmailBackend',
-    },
-}
+EMAIL_BACKEND = os.getenv(
+    "EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend"
+)
+EMAIL_HOST = os.getenv("EMAIL_HOST", "localhost")
+EMAIL_PORT = int(os.getenv("EMAIL_PORT", "25"))
+EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "False").lower() in {"true", "1", "yes"}
+EMAIL_USE_SSL = os.getenv("EMAIL_USE_SSL", "False").lower() in {"true", "1", "yes"}
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
+EMAIL_TIMEOUT = int(os.getenv("EMAIL_TIMEOUT", "10"))
+DEFAULT_FROM_EMAIL = os.getenv(
+    "DEFAULT_FROM_EMAIL", "Контроль ремонта <no-reply@example.com>"
+)
 
 AUTH_USER_MODEL = "accounts.User"
 
@@ -176,7 +187,6 @@ PASSWORD_RESET_TIMEOUT = 60 * 60 * 24
 LOGIN_MAX_ATTEMPTS = 5
 LOGIN_LOCK_MINUTES = 15
 
-DEFAULT_FROM_EMAIL = "Контроль ремонта <no-reply@example.com>"
 # Для боевого сервера (HTTPS):
 # SESSION_COOKIE_SECURE = True
 # CSRF_COOKIE_SECURE = True
