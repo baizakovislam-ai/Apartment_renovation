@@ -31,6 +31,12 @@ ALLOWED_HOSTS = []
 # Application definition
 
 INSTALLED_APPS = [
+    'django.contrib.admin',
+        'django.contrib.auth',
+        'django.contrib.contenttypes',
+        'django.contrib.sessions',
+        'django.contrib.messages',
+        'django.contrib.staticfiles',
     'rest_framework',
     'apps.accounts',
     'apps.projects',
@@ -42,12 +48,7 @@ INSTALLED_APPS = [
     'apps.communications',
     'apps.reports',
 
-    'django.contrib.admin',
-    'django.contrib.auth',
-    'django.contrib.contenttypes',
-    'django.contrib.sessions',
-    'django.contrib.messages',
-    'django.contrib.staticfiles',
+    
 ]
 
 MIDDLEWARE = [
@@ -137,6 +138,46 @@ MAILERS = {
     },
 }
 
+AUTH_USER_MODEL = "accounts.User"
+
+LOGIN_URL = "accounts:login"
+LOGIN_REDIRECT_URL = "accounts:profile"
+LOGOUT_REDIRECT_URL = "accounts:login"
+
+LANGUAGE_CODE = "ru"
+TIME_ZONE = "Asia/Bishkek"
+USE_TZ = True
+
+# Argon2id (ТЗ п. 4.17); остальные хешеры оставлены, чтобы читались старые хеши
+PASSWORD_HASHERS = [
+    "django.contrib.auth.hashers.Argon2PasswordHasher",
+    "django.contrib.auth.hashers.PBKDF2PasswordHasher",
+    "django.contrib.auth.hashers.BCryptSHA256PasswordHasher",
+]
+
+AUTH_PASSWORD_VALIDATORS = [
+    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
+    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator", "OPTIONS": {"min_length": 8}},
+    {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
+    {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
+]
+
+# Срок действия ссылок подтверждения email и сброса пароля, секунд (24 часа)
+PASSWORD_RESET_TIMEOUT = 60 * 60 * 24
+
+# Ограничение попыток входа (ТЗ п. 4.17)
+LOGIN_MAX_ATTEMPTS = 5
+LOGIN_LOCK_MINUTES = 15
+
+DEFAULT_FROM_EMAIL = "Контроль ремонта <no-reply@example.com>"
+# Для боевого сервера (HTTPS):
+# SESSION_COOKIE_SECURE = True
+# CSRF_COOKIE_SECURE = True
+# SECURE_SSL_REDIRECT = True
+
+# ====== Добавьте в config/urls.py ======
+# from django.urls import include, path
+# urlpatterns += [path("accounts/", include("apps.accounts.urls"))]
 
 # Every API endpoint requires a signed-in user by default.
 REST_FRAMEWORK = {

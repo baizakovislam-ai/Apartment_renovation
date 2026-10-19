@@ -1,0 +1,19 @@
+{% load static %}<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Вход{% endblock %} — Контроль ремонта квартиры</title>
+  <link rel="stylesheet" href="{% static 'accounts/auth.css' %}">
+</head>
+<body>
+  <div class="brand">Контроль ремонта квартиры</div>
+  <main class="card">
+    <div class="tape" aria-hidden="true"></div>
+    <div class="card-body">
+      {% if messages %}{% for m in messages %}<div class="alert ok" role="status">{{ m }}</div>{% endfor %}{% endif %}
+      {% block content %}{% endblock %}
+    </div>
+  </main>
+</body>
+</html>

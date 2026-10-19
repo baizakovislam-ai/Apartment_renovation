@@ -1,0 +1,12 @@
+{% extends "accounts/base_auth.html" %}
+{% block title %}Повторное письмо{% endblock %}
+{% block content %}
+  <h1>Отправить письмо ещё раз</h1>
+  <p class="lead">Укажите email, который вы использовали при регистрации.</p>
+  <form method="post" novalidate>
+    {% csrf_token %}
+    {% for field in form %}{% include "accounts/_field.html" %}{% endfor %}
+    <button class="btn" type="submit">Отправить письмо</button>
+  </form>
+  <div class="links"><a href="{% url 'accounts:login' %}">Вернуться ко входу</a></div>
+{% endblock %}
