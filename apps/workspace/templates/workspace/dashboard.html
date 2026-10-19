@@ -1,0 +1,86 @@
+{% extends 'workspace/base.html' %}{% load workspace_ui %}{% block title %}Главная{% endblock %}{% block content %}
+<div class="page-title">
+<div>
+<span class="eyebrow">Ваше рабочее пространство</span>
+<h1>Здравствуйте, {{ user.get_short_name }}</h1>
+<p>{% if project %}Следите за командой и сроками проекта «{{ project.name }}».{% else %}Создайте первый проект или примите приглашение в команду.{% endif %}</p>
+</div>
+<a class="button button--primary" href="{% url 'workspace:project-create' %}">{% icon 'plus' %} Новый проект</a>
+</div>
+{% if project %}<form class="project-picker" method="get">
+<label for="current-project">Открытый проект</label>
+<select id="current-project" name="project">{% for item in projects %}<option value="{{ item.pk }}" {% if item.pk == project.pk %}selected{% endif %}>{{ item.name }}</option>{% endfor %}</select>
+<button class="button button--secondary" type="submit">Открыть</button>
+</form>
+<div class="metrics">
+<div class="metric">
+<div class="metric__icon metric__icon--blue">{% icon 'projects' %}</div>
+<span>Мои проекты</span>
+<strong>{{ projects|length }}</strong>
+<small>Доступны вашему аккаунту</small>
+</div>
+<div class="metric">
+<div class="metric__icon metric__icon--teal">{% icon 'users' %}</div>
+<span>Команда проекта</span>
+<strong>{{ project.member_count }}</strong>
+<small>Принявшие участие</small>
+</div>
+<div class="metric">
+<div class="metric__icon metric__icon--green">{% icon 'check' %}</div>
+<span>Работы выполнены</span>
+<strong>{{ completed_stages }} из {{ total_stages }}</strong>
+<small>Этапы с завершёнными работами</small>
+</div>
+<div class="metric">
+<div class="metric__icon metric__icon--orange">{% icon 'alert' %}</div>
+<span>Просроченные этапы</span>
+<strong>{{ overdue }}</strong>
+<small>Требуют внимания к срокам</small>
+</div>
+</div>
+<div class="dashboard-grid">
+<section class="card project-card">
+<div class="card__head">
+<div>
+<span class="eyebrow">Последовательность работ</span>
+<h2>Этапы проекта</h2>
+</div>
+<a class="button button--ghost" href="{% url 'workspace:stages' project.pk %}">Все этапы {% icon 'arrow' %}</a>
+</div>{% for stage in stages %}<div class="summary-row">
+<span class="summary-index">{{ forloop.counter|stringformat:'02d' }}</span>
+<div>
+<strong>{{ stage.name }}</strong>
+<small>{{ stage.start_date|date:'d.m.Y' }} — {{ stage.end_date|date:'d.m.Y' }}</small>
+</div>
+<span class="badge badge--{{ stage.status|status_tone }}">{{ stage.get_status_display }}</span>
+</div>{% empty %}<div class="empty-state compact">{% icon 'stages' %}<h3>Начните с первого этапа</h3>
+<p>Разбейте ремонт на последовательные работы.</p>{% if is_manager %}<a class="button button--primary" href="{% url 'workspace:stage-create' project.pk %}">Добавить этап</a>{% endif %}</div>{% endfor %}</section>
+<section class="card approvals">
+<div class="card__head">
+<div>
+<span class="eyebrow">Планирование</span>
+<h2>Ближайшие сроки</h2>
+</div>{% icon 'history' %}</div>{% for stage in upcoming %}<div class="deadline-row">
+<span class="history-dot history-dot--blue">{% icon 'history' %}</span>
+<div>
+<strong>{{ stage.name }}</strong>
+<small>{{ stage.responsible.user|display_name }}</small>
+</div>
+<span class="deadline {% if stage.end_date < today %}overdue{% endif %}">{{ stage.end_date|date:'d.m.Y' }}</span>
+</div>{% empty %}<div class="empty-state compact">
+<h3>Нет открытых сроков</h3>
+<p>Здесь появятся даты незавершённых этапов.</p>
+</div>{% endfor %}</section>
+</div>
+<section class="card team-banner">
+<div>
+<span class="eyebrow">Работайте вместе</span>
+<h2>У каждого участника — своя роль</h2>
+<p>Заказчик управляет составом команды, прораб планирует работы, исполнители видят этапы.</p>
+</div>
+<a class="button button--secondary" href="{% url 'workspace:members' project.pk %}">{% icon 'users' %} Открыть команду</a>
+</section>
+{% else %}<section class="card empty-state">{% icon 'projects' %}<h2>Ваш первый ремонт начинается здесь</h2>
+<p>Создайте проект, пригласите прораба и исполнителей, затем запланируйте этапы.</p>
+<a class="button button--primary" href="{% url 'workspace:project-create' %}">{% icon 'plus' %} Создать проект</a>
+</section>{% endif %}{% endblock %}

@@ -6,3 +6,5 @@ db.sqlite3
 
 media/*
 !media/.gitkeep
+# Local database backups
+db.sqlite3.*.bak

@@ -16,10 +16,10 @@ class ProjectAPITests(APITestCase):
     @classmethod
     def setUpTestData(cls):
         User = get_user_model()
-        cls.customer = User.objects.create_user(username="customer", email="owner@example.com", password="test-password")
-        cls.foreman = User.objects.create_user(username="foreman", email="foreman@example.com", password="test-password")
-        cls.executor = User.objects.create_user(username="executor", email="worker@example.com", password="test-password")
-        cls.stranger = User.objects.create_user(username="stranger", email="other@example.com", password="test-password")
+        cls.customer = User.objects.create_user(full_name="customer", is_email_verified=True, email="owner@example.com", password="test-password")
+        cls.foreman = User.objects.create_user(full_name="foreman", is_email_verified=True, email="foreman@example.com", password="test-password")
+        cls.executor = User.objects.create_user(full_name="executor", is_email_verified=True, email="worker@example.com", password="test-password")
+        cls.stranger = User.objects.create_user(full_name="stranger", is_email_verified=True, email="other@example.com", password="test-password")
         cls.project = create_project(user=cls.customer, name="Ремонт квартиры")
         cls.base = f"/api/projects/{cls.project.pk}/"
 
@@ -156,12 +156,12 @@ class ProjectAPITests(APITestCase):
 
     def test_real_session_login(self):
         self.client.force_authenticate(None)
-        self.assertTrue(self.client.login(username="customer", password="test-password"))
+        self.assertTrue(self.client.login(username="owner@example.com", password="test-password"))
         self.assertEqual(self.client.get(self.base).status_code, 200)
 
     def test_session_mutations_require_csrf_token(self):
         client = APIClient(enforce_csrf_checks=True)
-        self.assertTrue(client.login(username="customer", password="test-password"))
+        self.assertTrue(client.login(username="owner@example.com", password="test-password"))
         self.assertEqual(client.post("/api/projects/", {"name": "Без CSRF"}).status_code, 403)
         client.get("/api/auth/login/")
         token = client.cookies["csrftoken"].value
@@ -177,8 +177,8 @@ class DemoCommandTests(APITestCase):
         project = Project.objects.get(name="Демонстрационный ремонт")
         self.assertEqual(project.members.count(), 3)
         self.assertEqual(project.stages.count(), 1)
-        self.assertTrue(self.client.login(username="demo_foreman", password="Demo-test-password"))
+        self.assertTrue(self.client.login(username="foreman@example.com", password="Demo-test-password"))
         self.assertEqual(self.client.get(f"/api/projects/{project.pk}/stages/").status_code, 200)
         call_command("seed_demo", password="Another-password", stdout=output)
         self.assertEqual(Project.objects.count(), 1)
-        self.assertTrue(self.client.login(username="demo_foreman", password="Demo-test-password"))
+        self.assertTrue(self.client.login(username="foreman@example.com", password="Demo-test-password"))

@@ -9,10 +9,10 @@ from .models import Stage
 class StageAPITests(APITestCase):
     def setUp(self):
         User = get_user_model()
-        self.customer = User.objects.create_user(username="customer")
-        self.foreman = User.objects.create_user(username="foreman")
-        self.executor = User.objects.create_user(username="executor")
-        self.stranger = User.objects.create_user(username="stranger")
+        self.customer = User.objects.create_user(email="customer@example.com", full_name="customer", is_email_verified=True)
+        self.foreman = User.objects.create_user(email="foreman@example.com", full_name="foreman", is_email_verified=True)
+        self.executor = User.objects.create_user(email="executor@example.com", full_name="executor", is_email_verified=True)
+        self.stranger = User.objects.create_user(email="stranger@example.com", full_name="stranger", is_email_verified=True)
         self.project = create_project(user=self.customer, name="Ремонт")
         self.customer_member = self.project.members.get(user=self.customer)
         self.foreman_member = ProjectMember.objects.create(project=self.project, user=self.foreman, role="foreman")

@@ -1,0 +1,46 @@
+{% extends 'workspace/base.html' %}{% load workspace_ui %}{% block title %}Мои проекты{% endblock %}{% block content %}<div class="page-title">
+<div>
+<span class="eyebrow">Объекты и команда</span>
+<h1>Мои проекты</h1>
+<p>Все проекты, в которых вы участвуете.</p>
+</div>
+<a class="button button--primary" href="{% url 'workspace:project-create' %}">{% icon 'plus' %} Создать проект</a>
+</div>
+<form class="toolbar filter-form" method="get">
+<label class="search">{% icon 'search' %}<input name="q" value="{{ query }}" placeholder="Поиск по названию проекта" aria-label="Поиск по названию проекта">
+</label>
+<button class="button button--secondary" type="submit">Найти</button>{% if query %}<a href="{% url 'workspace:projects' %}">Сбросить</a>{% endif %}<span class="muted-text">Найдено: {{ items|length }}</span>
+</form>
+<div class="project-grid">{% for item in items %}<article class="card live-project-card">
+<div class="project-illustration" aria-hidden="true">
+<svg viewBox="0 0 400 140" fill="none">
+<path d="M60 120V30h155v90M215 120V60h125v60M60 70h155M140 30v90M250 60v60M30 120h340" stroke="currentColor" stroke-width="2"/>
+<path d="M80 48h35v22H80zM160 85h35v35h-35zM275 80h40v40h-40z" stroke="currentColor" stroke-width="2"/>
+</svg>
+<span class="badge badge--blue">{{ item.role }}</span>
+</div>
+<div class="project-list-card__body">
+<span class="eyebrow">Проект № {{ item.project.pk }}</span>
+<h2>
+<a href="{% url 'workspace:dashboard' %}?project={{ item.project.pk }}">{{ item.project.name }}</a>
+</h2>
+<p>Создан {{ item.project.created_at|date:'d E Y' }}</p>
+<div class="project-meta">
+<span>
+<small>Этапы</small>
+<strong>{{ item.project.stage_count }}</strong>
+</span>
+<span>
+<small>Участники</small>
+<strong>{{ item.project.member_count }}</strong>
+</span>
+</div>
+<div class="card-actions">
+<a class="button button--primary" href="{% url 'workspace:stages' item.project.pk %}">Открыть проект {% icon 'arrow' %}</a>
+<a class="button button--ghost" href="{% url 'workspace:members' item.project.pk %}">Команда</a>
+</div>
+</div>
+</article>{% empty %}<section class="card empty-state">
+<h2>{% if query %}Проекты не найдены{% else %}Проектов пока нет{% endif %}</h2>
+<p>{% if query %}Попробуйте другое название.{% else %}Создайте проект или откройте ссылку приглашения от заказчика.{% endif %}</p>
+</section>{% endfor %}</div>{% endblock %}

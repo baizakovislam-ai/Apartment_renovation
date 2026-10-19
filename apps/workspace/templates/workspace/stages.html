@@ -1,0 +1,38 @@
+{% extends 'workspace/base.html' %}{% load workspace_ui %}{% block title %}Этапы ремонта{% endblock %}{% block content %}<div class="page-title">
+<div>
+<span class="eyebrow">План ремонта</span>
+<h1>Этапы ремонта</h1>
+<p>Последовательность работ, сроки и ответственные в проекте «{{ project.name }}».</p>
+</div>{% if is_manager %}<a class="button button--primary" href="{% url 'workspace:stage-create' project.pk %}">{% icon 'plus' %} Добавить этап</a>{% endif %}</div>
+<form class="toolbar filter-form" method="get">
+<label class="search">{% icon 'search' %}<input name="q" value="{{ query }}" placeholder="Поиск этапа" aria-label="Поиск этапа">
+</label>
+<select name="status" aria-label="Статус этапа">
+<option value="">Все статусы</option>{% for value,label in stage_statuses %}<option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+<button class="button button--secondary" type="submit">Применить</button>{% if query or status_filter %}<a href="{% url 'workspace:stages' project.pk %}">Сбросить</a>{% endif %}</form>
+<div class="timeline live-timeline">{% for stage in stages %}<article class="timeline-item">
+<div class="timeline-item__index timeline-item__index--{{ stage.status|status_tone }}">{{ forloop.counter|stringformat:'02d' }}</div>
+<div class="timeline-item__body">
+<div class="timeline-item__head">
+<div>
+<span class="eyebrow">Этап {{ stage.position }}</span>
+<h2>{{ stage.name }}</h2>
+</div>
+<span class="badge badge--{{ stage.status|status_tone }}">
+<span class="badge__dot">
+</span>{{ stage.get_status_display }}</span>
+</div>{% if stage.description %}<p class="stage-description">{{ stage.description|linebreaksbr }}</p>{% endif %}<div class="timeline-item__meta">
+<span>
+<small>Сроки</small>
+<strong>{{ stage.start_date|date:'d.m.Y' }} — {{ stage.end_date|date:'d.m.Y' }}</strong>
+</span>
+<span>
+<small>Ответственный</small>
+<span class="person">
+<span class="avatar avatar--teal">{{ stage.responsible.user|initials }}</span>{{ stage.responsible.user|display_name }}</span>
+</span>
+</div>{% if is_manager %}<div class="card-actions">{% if stage.status == 'planned' or stage.status == 'in_progress' or stage.status == 'completed' %}<a class="button button--secondary" href="{% url 'workspace:stage-edit' project.pk stage.pk %}">Редактировать</a>{% endif %}{% if stage.status == 'planned' and stage.created_by_id == user.pk %}<form method="post" action="{% url 'workspace:stage-delete' project.pk stage.pk %}" data-confirm="Удалить черновик этапа «{{ stage.name }}»?">{% csrf_token %}<button class="button button--danger" type="submit">Удалить черновик</button>
+</form>{% endif %}</div>{% endif %}</div>
+</article>{% empty %}<section class="card empty-state">{% icon 'stages' %}<h2>Этапы не найдены</h2>
+<p>{% if query or status_filter %}Измените условия поиска.{% else %}Добавьте первую работу и назначьте ответственного.{% endif %}</p>
+</section>{% endfor %}</div>{% endblock %}

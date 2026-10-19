@@ -70,7 +70,8 @@ class LogoutView(auth_views.LogoutView):
 
 @login_required
 def profile(request):
-    return render(request, "accounts/profile.html")
+    from apps.workspace.views import context
+    return render(request, "accounts/profile.html", context(request, page="profile"))
 
 
 # ---- Восстановление пароля (встроенные представления Django) ----
