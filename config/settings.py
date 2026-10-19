@@ -116,7 +116,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Asia/Bishkek'
 
 USE_I18N = True
 
@@ -178,3 +178,11 @@ DEFAULT_FROM_EMAIL = "Контроль ремонта <no-reply@example.com>"
 # ====== Добавьте в config/urls.py ======
 # from django.urls import include, path
 # urlpatterns += [path("accounts/", include("apps.accounts.urls"))]
+
+# Every API endpoint requires a signed-in user by default.
+REST_FRAMEWORK = {
+    "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework.authentication.SessionAuthentication",
+    ],
+}
