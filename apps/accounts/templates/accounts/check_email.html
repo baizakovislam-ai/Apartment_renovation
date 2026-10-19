@@ -2,7 +2,8 @@
 {% block title %}Проверьте почту{% endblock %}
 {% block content %}
   <h1>Проверьте почту</h1>
-  <p class="lead">Если аккаунт требует подтверждения, мы отправили на ваш email письмо со ссылкой. Ссылка действует 24 часа.</p>
-  <a class="btn" href="{% url 'accounts:login' %}">Перейти ко входу</a>
-  <div class="links"><a href="{% url 'accounts:resend_verification' %}">Отправить письмо ещё раз</a></div>
+  <p class="lead">Если аккаунт требует подтверждения, мы отправили на ваш email 6-значный код. Он действует 10 минут.</p>
+  {% if messages %}<div class="alert">{% for message in messages %}{{ message }}{% if not forloop.last %}<br>{% endif %}{% endfor %}</div>{% endif %}
+  <a class="btn" href="{% url 'accounts:verify_email' %}">Ввести код подтверждения</a>
+  <div class="links"><a href="{% url 'accounts:login' %}">Перейти ко входу</a> · <a href="{% url 'accounts:resend_verification' %}">Отправить код ещё раз</a></div>
 {% endblock %}

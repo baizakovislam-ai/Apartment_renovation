@@ -81,3 +81,56 @@ class LoginForm(AuthenticationForm):
 
 class ResendVerificationForm(forms.Form):
     email = forms.EmailField(label="Email", widget=forms.EmailInput(attrs={"autofocus": True, "autocomplete": "email"}))
+
+
+class VerifyEmailForm(forms.Form):
+    email = forms.EmailField(label="Email", widget=forms.EmailInput(attrs={"autocomplete": "email"}))
+    code = forms.RegexField(
+        r"^\d{6}$",
+        label="Код подтверждения",
+        error_messages={"invalid": "Введите 6-значный код из письма."},
+        widget=forms.TextInput(attrs={"autocomplete": "one-time-code", "inputmode": "numeric", "maxlength": "6"}),
+    )
+
+
+class PasswordResetRequestForm(forms.Form):
+    email = forms.EmailField(
+        label="Email",
+        widget=forms.EmailInput(attrs={"autocomplete": "email", "autofocus": True}),
+    )
+
+
+class PasswordResetCodeForm(forms.Form):
+    email = forms.EmailField(label="Email", widget=forms.EmailInput(attrs={"autocomplete": "email"}))
+    code = forms.RegexField(
+        r"^\d{6}$",
+        label="Код из письма",
+        error_messages={"invalid": "Введите 6-значный код из письма."},
+        widget=forms.TextInput(attrs={"autocomplete": "one-time-code", "inputmode": "numeric", "maxlength": "6"}),
+    )
+    new_password1 = forms.CharField(
+        label="Новый пароль",
+        strip=False,
+        widget=forms.PasswordInput(attrs={"autocomplete": "new-password"}),
+    )
+    new_password2 = forms.CharField(
+        label="Повторите новый пароль",
+        strip=False,
+        widget=forms.PasswordInput(attrs={"autocomplete": "new-password"}),
+    )
+
+    def clean(self):
+        cleaned = super().clean()
+        email = cleaned.get("email")
+        password1 = cleaned.get("new_password1")
+        password2 = cleaned.get("new_password2")
+        if password1 and password2:
+            if password1 != password2:
+                self.add_error("new_password2", "Пароли не совпадают.")
+            else:
+                user = User.objects.filter(email__iexact=email.strip()).first() if email else None
+                try:
+                    validate_password(password1, user=user)
+                except ValidationError as error:
+                    self.add_error("new_password1", error)
+        return cleaned

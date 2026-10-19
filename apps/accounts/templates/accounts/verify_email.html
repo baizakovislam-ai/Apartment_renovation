@@ -1,0 +1,13 @@
+{% extends "accounts/base_auth.html" %}
+{% block title %}Подтверждение email{% endblock %}
+{% block content %}
+  <h1>Подтвердите email</h1>
+  <p class="lead">Введите email и 6-значный код из письма. Код действует 10 минут.</p>
+  <form method="post" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="alert">{{ form.non_field_errors }}</div>{% endif %}
+    {% for field in form %}{% include "accounts/_field.html" %}{% endfor %}
+    <button class="btn" type="submit">Подтвердить email</button>
+  </form>
+  <div class="links"><a href="{% url 'accounts:resend_verification' %}">Запросить новый код</a></div>
+{% endblock %}

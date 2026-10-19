@@ -73,3 +73,17 @@ class LoginAttempt(models.Model):
         indexes = [models.Index(fields=["email", "created_at"])]
         verbose_name = "неудачная попытка входа"
         verbose_name_plural = "неудачные попытки входа"
+
+
+class EmailVerificationCode(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="email_verification_code")
+    code_hash = models.CharField(max_length=64)
+    created_at = models.DateTimeField(auto_now=True)
+    attempts = models.PositiveSmallIntegerField(default=0)
+
+
+class PasswordResetCode(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="password_reset_code")
+    code_hash = models.CharField(max_length=64)
+    created_at = models.DateTimeField(auto_now=True)
+    attempts = models.PositiveSmallIntegerField(default=0)
