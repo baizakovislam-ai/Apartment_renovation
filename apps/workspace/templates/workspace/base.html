@@ -1,0 +1,73 @@
+{% load static workspace_ui %}<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#172b4d">
+<title>{% block title %}Рабочее пространство{% endblock %} — Контроль ремонта</title>
+<link rel="icon" href="{% static 'workspace/favicon.svg' %}">
+<link rel="stylesheet" href="{% static 'workspace/design.css' %}">
+<link rel="stylesheet" href="{% static 'workspace/app.css' %}">
+<script src="{% static 'workspace/app.js' %}" defer>
+</script>
+</head>
+<body>
+<a class="skip-link" href="#content">Перейти к содержимому</a>
+<div class="app">
+<aside class="sidebar" id="sidebar" aria-label="Основное меню">
+<a class="brand" href="{% url 'workspace:dashboard' %}">
+<span class="brand__mark">{% icon 'stages' %}</span>
+<span>
+<strong>Ремонт</strong>
+<small>контроль проекта</small>
+</span>
+</a>
+<button class="icon-button sidebar__close" data-menu-close aria-label="Закрыть меню">{% icon 'close' %}</button>
+<a class="project-switch" href="{% url 'workspace:projects' %}">
+<span class="project-switch__icon">{% if project %}{{ project.name|first }}{% else %}Р{% endif %}</span>
+<span>
+<small>Текущий проект</small>
+<strong>{{ project.name|default:'Выберите проект' }}</strong>
+</span>{% icon 'arrow' %}</a>
+<nav class="nav">
+<span class="nav__label">Рабочее пространство</span>
+<a class="nav__item {% if page == 'dashboard' %}nav__item--active{% endif %}" href="{% url 'workspace:dashboard' %}">{% icon 'home' %}<span>Главная</span>
+</a>
+<a class="nav__item {% if page == 'projects' %}nav__item--active{% endif %}" href="{% url 'workspace:projects' %}">{% icon 'projects' %}<span>Мои проекты</span>
+</a>
+{% if project %}<a class="nav__item {% if page != 'dashboard' and page != 'projects' %}nav__item--active{% endif %}" href="{% url 'workspace:project-detail' project.pk %}">{% icon 'stages' %}<span>Открытый проект</span></a>{% endif %}
+</nav>
+<div class="sidebar__bottom">
+<a class="nav__item" href="{% url 'accounts:profile' %}">{% icon 'users' %}<span>Мой профиль</span>
+</a>
+<div class="profile-mini">
+<span class="avatar">{{ user|initials }}</span>
+<span>
+<strong>{{ user|display_name }}</strong>
+<small>{{ membership.get_role_display|default:'Личный кабинет' }}</small>
+</span>
+</div>
+<form method="post" action="{% url 'accounts:logout' %}">{% csrf_token %}<button class="nav__item logout-button" type="submit">Выйти из аккаунта {% icon 'arrow' %}</button>
+</form>
+</div>
+</aside>
+<button class="mobile-overlay" data-menu-close aria-label="Закрыть меню" hidden>
+</button>
+<div class="shell">
+<header class="header">
+<button class="icon-button mobile-menu" data-menu-open aria-label="Открыть меню" aria-controls="sidebar" aria-expanded="false">{% icon 'menu' %}</button>
+<div class="header__title">
+<span>Контроль ремонта квартиры</span>
+<strong>{{ project.name|default:'Рабочее пространство' }}</strong>
+</div>
+<div class="header__right">{% if membership %}<span class="badge badge--blue">{{ membership.get_role_display }}</span>{% endif %}<span class="header-date">{{ today|date:'d E Y' }}</span>
+<span class="avatar">{{ user|initials }}</span>
+</div>
+</header>
+<main id="content">{% if messages %}<div class="messages" aria-live="polite">{% for message in messages %}<div class="notice notice--{{ message.tags }}">{{ message }}</div>{% endfor %}</div>{% endif %}{% if project and page != 'dashboard' %}{% include 'workspace/_project_nav.html' %}{% endif %}{% block content %}{% endblock %}<footer class="workspace-footer">Контроль ремонта квартиры <span>Команда · Этапы · Сроки</span>
+</footer>
+</main>
+</div>
+</div>
+</body>
+</html>

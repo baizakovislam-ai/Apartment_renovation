@@ -1,0 +1,2 @@
+{% extends 'workspace/base.html' %}{% block title %}Фотоотчёты{% endblock %}
+{% block content %}<div class="page-title"><div><span class="eyebrow">Результаты работ</span><h1>Фотоотчёты</h1><p>Фотографии, описание, автор и дата по каждой задаче.</p></div><a class="button button--secondary" href="{% url 'workspace:tasks' project.pk %}">К задачам →</a></div>{% include 'workspace/_reports.html' %}{% endblock %}

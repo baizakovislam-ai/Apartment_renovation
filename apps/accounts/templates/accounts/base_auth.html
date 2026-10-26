@@ -1,0 +1,28 @@
+{% load static workspace_ui %}<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Вход{% endblock %} — Контроль ремонта</title>
+<link rel="icon" href="{% static 'workspace/favicon.svg' %}">
+<link rel="stylesheet" href="{% static 'workspace/design.css' %}">
+<link rel="stylesheet" href="{% static 'workspace/app.css' %}">
+</head>
+<body class="auth-page">
+<div class="auth-stage">
+<aside class="auth-visual">
+<a class="auth-visual__brand" href="{% url 'workspace:dashboard' %}">
+<span class="brand__mark">{% icon 'stages' %}</span>
+<strong>Контроль ремонта</strong>
+</a>
+<div>
+<span class="eyebrow">Ремонт без хаоса</span>
+<h1>Весь проект — в одном пространстве.</h1>
+<p>Планируйте этапы ремонта, собирайте команду и следите за сроками. У каждого участника — своя роль и понятная зона ответственности.</p>
+</div>
+<div class="auth-footnote">От первого этапа до результата.<br>Работайте вместе и сохраняйте историю решений.</div>
+</aside>
+<main class="auth-card">{% if messages %}{% for message in messages %}<div class="alert{% if message.tags == 'success' %} ok{% endif %}" role="{% if message.tags == 'error' %}alert{% else %}status{% endif %}">{{ message }}</div>{% endfor %}{% endif %}{% block content %}{% endblock %}</main>
+</div>
+</body>
+</html>

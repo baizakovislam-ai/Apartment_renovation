@@ -1,0 +1,12 @@
+{% load workspace_ui %}
+{% if is_manager %}
+<section class="card quick-stage" id="add-stage">
+  <div><h2>Добавить этап</h2><p class="muted-text">Запишите работу сейчас. Сроки и ответственного можно назначить позже.</p></div>
+  <form method="post" action="{% url 'workspace:stage-quick' project.pk %}">
+    {% csrf_token %}
+    <div class="quick-stage-field">{% include 'accounts/_field.html' with field=form.name %}</div>
+    <button class="button button--primary" type="submit">{% icon 'plus' %} Добавить этап</button>
+    <a href="{% url 'workspace:stage-create' project.pk %}">Указать все детали</a>
+  </form>
+</section>
+{% endif %}

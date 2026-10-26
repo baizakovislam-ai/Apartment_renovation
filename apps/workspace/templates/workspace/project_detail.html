@@ -1,0 +1,36 @@
+{% extends 'workspace/base.html' %}{% load workspace_ui %}
+{% block title %}{{ project.name }}{% endblock %}
+{% block content %}
+<div class="page-title">
+  <div><span class="eyebrow">{% if is_customer %}Кабинет заказчика{% elif is_foreman %}Кабинет прораба{% else %}Кабинет исполнителя{% endif %} · Проект № {{ project.pk }}</span><h1>{{ project.name }}</h1><p>{{ project.address|default:'Адрес квартиры пока не указан' }}</p></div>
+  {% if is_customer %}<a class="button button--secondary" href="{% url 'workspace:project-edit' project.pk %}">Настройки проекта</a>{% endif %}
+</div>
+{% if project.description %}<div class="project-description">{{ project.description|linebreaksbr }}</div>{% endif %}
+{% include 'workspace/_progress.html' %}
+<div class="card-actions work-shortcuts"><a class="button button--secondary" href="{% url 'workspace:tasks' project.pk %}">{% if is_executor %}Мои задачи{% else %}Задачи и сроки{% endif %} →</a><a class="button button--secondary" href="{% url 'workspace:reports' project.pk %}">Фотоотчёты →</a>{% if is_manager %}<a class="button button--secondary" href="{% url 'workspace:acceptance' project.pk %}">Приёмка этапов →</a>{% endif %}</div>
+<div class="project-overview">
+  <section class="card project-progress">
+  {% if is_customer %}
+    <span class="eyebrow">Контроль ремонта</span><h2>Соберите команду и согласуйте план</h2>
+    <p>Вы управляете квартирой и составом команды. Прораб готовит план работ; вы можете проверить сроки и скорректировать этапы.</p>
+    <p class="role-summary">{% if foreman %}Прораб: <strong>{{ foreman.user|display_name }}</strong>{% elif foreman_pending %}Прораб приглашён. Ожидается принятие приглашения.{% else %}Прораб ещё не приглашён.{% endif %}</p>
+    <a class="button button--primary" href="{% url 'workspace:members' project.pk %}{% if not foreman and not foreman_pending %}?role=foreman#invite{% endif %}">{% if foreman or foreman_pending %}Управлять командой{% else %}Пригласить прораба{% endif %}</a>
+  {% elif is_foreman %}
+    <span class="eyebrow">Организация работ</span><h2>Подготовьте план ремонта</h2>
+    <p>Составьте этапы, определите порядок работ и назначьте ответственных из команды. Состав команды и сведения о квартире меняет заказчик.</p>
+    <p class="role-summary">Без полных сроков: <strong>{{ missing_schedule }}</strong> · Без ответственного: <strong>{{ missing_responsible }}</strong></p>
+    <a class="button button--primary" href="#add-stage">Добавить этап в план</a>
+  {% else %}
+    <span class="eyebrow">Информация для исполнителя</span><h2>План и команда вашего проекта</h2>
+    <p>Здесь можно посмотреть этапы, сроки и ответственных. Планирование выполняют заказчик и прораб.</p>
+  {% endif %}
+  </section>
+  <section class="card project-team"><div class="card__head"><h2>Команда · {{ project.member_count }}</h2><a href="{% url 'workspace:members' project.pk %}">{% if is_customer %}Добавить людей{% else %}Открыть команду{% endif %} →</a></div>
+  {% for member in team %}<div class="project-person"><span class="avatar avatar--teal">{{ member.user|initials }}</span><span><strong>{{ member.user|display_name }}</strong><small>{{ member.get_role_display }}</small></span></div>{% endfor %}</section>
+</div>
+{% if is_customer %}
+<div class="page-title"><div><h2>План ремонта · {{ project.stage_count }} этапов</h2><p>Принято заказчиком: {{ accepted }}. Выполнение работ и приёмка учитываются отдельно.</p></div><a class="button button--secondary" href="{% url 'workspace:stages' project.pk %}">Проверить план и сроки</a></div>
+<details class="customer-planning"><summary>Добавить этап самостоятельно</summary>{% include 'workspace/_quick_stage.html' %}</details>
+{% elif is_foreman %}{% include 'workspace/_quick_stage.html' %}{% endif %}
+{% include 'workspace/_stage_cards.html' %}
+{% endblock %}

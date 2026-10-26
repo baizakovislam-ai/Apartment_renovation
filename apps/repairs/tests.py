@@ -9,10 +9,10 @@ from .models import Stage
 class StageAPITests(APITestCase):
     def setUp(self):
         User = get_user_model()
-        self.customer = User.objects.create_user(username="customer")
-        self.foreman = User.objects.create_user(username="foreman")
-        self.executor = User.objects.create_user(username="executor")
-        self.stranger = User.objects.create_user(username="stranger")
+        self.customer = User.objects.create_user(email="customer@example.com", full_name="customer", is_email_verified=True)
+        self.foreman = User.objects.create_user(email="foreman@example.com", full_name="foreman", is_email_verified=True)
+        self.executor = User.objects.create_user(email="executor@example.com", full_name="executor", is_email_verified=True)
+        self.stranger = User.objects.create_user(email="stranger@example.com", full_name="stranger", is_email_verified=True)
         self.project = create_project(user=self.customer, name="Ремонт")
         self.customer_member = self.project.members.get(user=self.customer)
         self.foreman_member = ProjectMember.objects.create(project=self.project, user=self.foreman, role="foreman")
@@ -71,7 +71,22 @@ class StageAPITests(APITestCase):
         other_project = create_project(user=self.stranger, name="Другой")
         other_member = other_project.members.get()
         self.assertEqual(self.client.post(self.url, {**self.payload, "responsible": other_member.pk}).status_code, 400)
-        self.assertEqual(self.client.post(self.url, {**self.payload, "responsible": None}, format="json").status_code, 400)
+        self.assertEqual(self.client.post(self.url, {**self.payload, "responsible": None}, format="json").status_code, 201)
+
+    def test_draft_can_be_planned_before_assignment_but_not_started(self):
+        response = self.client.post(self.url, {"name": "Демонтаж"})
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertIsNone(response.data["start_date"])
+        self.assertIsNone(response.data["responsible"])
+        self.assertEqual(response.data["position"], 1)
+        detail = f"/api/stages/{response.data['id']}/"
+        self.assertEqual(self.client.patch(detail, {"status": "in_progress"}).status_code, 400)
+        self.assertEqual(self.client.patch(detail, self.payload).status_code, 200)
+        self.assertEqual(self.client.patch(detail, {"status": "in_progress"}).status_code, 400)
+        # Existing running stages still require a schedule and responsible member.
+        Stage.objects.filter(pk=response.data["id"]).update(status="in_progress")
+        self.assertEqual(self.client.patch(detail, {"responsible": None}, format="json").status_code, 400)
+        self.assertEqual(self.client.patch(detail, {"start_date": None}, format="json").status_code, 400)
 
     def test_assigned_member_cannot_be_removed_or_have_role_changed(self):
         self.create_stage()
@@ -90,9 +105,10 @@ class StageAPITests(APITestCase):
         response = self.create_stage()
         url = f"/api/stages/{response.data['id']}/"
         self.assertEqual(self.client.patch(url, {"status": "completed"}).status_code, 400)
-        self.assertEqual(self.client.patch(url, {"status": "in_progress"}).status_code, 200)
+        self.assertEqual(self.client.patch(url, {"status": "in_progress"}).status_code, 400)
+        Stage.objects.filter(pk=response.data["id"]).update(status="in_progress")
         self.assertEqual(self.client.delete(url).status_code, 400)
-        self.assertEqual(self.client.patch(url, {"status": "completed"}).status_code, 200)
+        self.assertEqual(self.client.patch(url, {"status": "completed"}).status_code, 400)
         self.assertEqual(self.client.patch(url, {"status": "accepted"}).status_code, 400)
 
     def test_accepted_stage_is_immutable(self):

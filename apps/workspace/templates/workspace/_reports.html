@@ -1,0 +1,4 @@
+<div class="work-list">{% for report in reports %}
+<article class="card work-panel photo-report"><div class="work-heading"><div><h2><a href="{% url 'workspace:task-detail' project.pk report.task_id %}">{{ report.task.name }}</a></h2><p class="muted-text">{{ report.author.get_full_name|default:report.author.email }} · {{ report.created_at|date:'d.m.Y, H:i' }}</p></div><span class="badge badge--blue">Фотоотчёт</span></div>
+<p class="work-text">{{ report.description|linebreaksbr }}</p><div class="photo-grid">{% for photo in report.photos.all %}<a href="{% url 'workspace:photo' photo.pk %}" target="_blank" rel="noopener"><img loading="lazy" src="{% url 'workspace:photo' photo.pk %}" alt="Фото {{ forloop.counter }} к задаче {{ report.task.name }}"></a>{% endfor %}</div></article>
+{% empty %}<section class="card empty-state"><h2>Фотоотчётов пока нет</h2><p>Откройте задачу и добавьте фотографии с описанием результата.</p></section>{% endfor %}</div>

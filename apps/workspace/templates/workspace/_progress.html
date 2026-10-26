@@ -1,0 +1,5 @@
+<section class="card work-panel progress-panel" aria-label="Прогресс ремонта">
+  <div><span class="eyebrow">Прогресс ремонта</span><h2>{{ progress.percent }}% этапов принято</h2><p class="muted-text">Заказчик принял {{ progress.accepted }} из {{ progress.stages }} этапов. Отменённые этапы не учитываются.</p></div>
+  <progress value="{{ progress.percent }}" max="100" aria-label="Принято этапов {{ progress.percent }} процентов">{{ progress.percent }}%</progress>
+  {% if is_manager %}<p class="muted-text">Задач выполнено: {{ progress.done }} из {{ progress.tasks }} · <span class="{% if progress.overdue %}overdue{% endif %}">Просрочено: {{ progress.overdue }}</span></p>{% endif %}
+</section>

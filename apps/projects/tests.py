@@ -8,7 +8,7 @@ from django.core.management import call_command
 from django.test import override_settings
 from io import StringIO
 
-from .models import ProjectEvent, ProjectInvitation, ProjectMember
+from .models import ProjectEvent, ProjectInvitation, ProjectMember, SavedContact
 from .services import create_project
 
 
@@ -16,10 +16,10 @@ class ProjectAPITests(APITestCase):
     @classmethod
     def setUpTestData(cls):
         User = get_user_model()
-        cls.customer = User.objects.create_user(username="customer", email="owner@example.com", password="test-password")
-        cls.foreman = User.objects.create_user(username="foreman", email="foreman@example.com", password="test-password")
-        cls.executor = User.objects.create_user(username="executor", email="worker@example.com", password="test-password")
-        cls.stranger = User.objects.create_user(username="stranger", email="other@example.com", password="test-password")
+        cls.customer = User.objects.create_user(full_name="customer", is_email_verified=True, email="owner@example.com", password="test-password")
+        cls.foreman = User.objects.create_user(full_name="foreman", is_email_verified=True, email="foreman@example.com", password="test-password")
+        cls.executor = User.objects.create_user(full_name="executor", is_email_verified=True, email="worker@example.com", password="test-password")
+        cls.stranger = User.objects.create_user(full_name="stranger", is_email_verified=True, email="other@example.com", password="test-password")
         cls.project = create_project(user=cls.customer, name="Ремонт квартиры")
         cls.base = f"/api/projects/{cls.project.pk}/"
 
@@ -38,6 +38,74 @@ class ProjectAPITests(APITestCase):
         member = ProjectMember.objects.get(project_id=response.data["id"])
         self.assertEqual((member.user, member.role), (self.customer, "customer"))
         self.assertTrue(ProjectEvent.objects.filter(project=member.project, action="project.created").exists())
+
+    def test_add_registered_member_and_reuse_private_contact(self):
+        response = self.client.post(self.base + "members/", {"email": self.executor.email.upper()})
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(response.data["kind"], "member")
+        member = response.data["member"]
+        self.assertEqual(member["email"], self.executor.email)
+        contact = SavedContact.objects.get(owner=self.customer, email=self.executor.email)
+        self.assertEqual(self.client.post(self.base + "members/", {"email": self.executor.email}).status_code, 400)
+        self.client.delete(self.base + f"members/{member['id']}/")
+        self.assertTrue(SavedContact.objects.filter(pk=contact.pk).exists())
+        other = create_project(user=self.customer, name="Второй ремонт")
+        response = self.client.post(f"/api/projects/{other.pk}/members/", {"contact_id": contact.pk})
+        self.assertEqual(response.status_code, 201)
+        self.client.force_authenticate(self.executor)
+        self.assertEqual(self.client.get(f"/api/projects/{other.pk}/").status_code, 200)
+        self.assertEqual(self.client.get("/api/contacts/").data, [])
+        own_project = create_project(user=self.executor, name="Личный")
+        response = self.client.post(f"/api/projects/{own_project.pk}/members/", {"contact_id": contact.pk})
+        self.assertEqual(response.status_code, 404)
+
+    def test_unknown_email_creates_invitation_and_remembers_contact(self):
+        response = self.client.post(self.base + "members/", {"email": "NEW@EXAMPLE.COM"})
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["kind"], "invitation")
+        self.assertEqual(self.project.members.count(), 1)
+        self.assertEqual(self.client.get("/api/contacts/").data[0]["email"], "new@example.com")
+        self.assertEqual(self.client.post(self.base + "members/", {"email": "new@example.com"}).status_code, 400)
+        self.assertEqual(self.project.invitations.count(), 1)
+
+    def test_direct_add_respects_roles_and_pending_foreman(self):
+        self.invite()
+        self.assertEqual(self.client.post(self.base + "members/", {"email": self.stranger.email, "role": "foreman"}).status_code, 400)
+        self.assertEqual(self.client.post(self.base + "members/", {"email": self.stranger.email, "role": "customer"}).status_code, 400)
+        self.join(self.executor, "executor")
+        self.client.force_authenticate(self.executor)
+        self.assertEqual(self.client.post(self.base + "members/", {"email": self.stranger.email}).status_code, 403)
+        self.client.force_authenticate(self.stranger)
+        self.assertEqual(self.client.post(self.base + "members/", {"email": self.foreman.email}).status_code, 404)
+
+    def test_registered_foreman_cannot_bypass_invitation(self):
+        response = self.client.post(self.base + "members/", {"email": self.foreman.email, "role": "foreman"})
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["kind"], "invitation")
+        self.assertFalse(self.project.members.filter(user=self.foreman).exists())
+        self.client.force_authenticate(self.foreman)
+        self.assertEqual(self.client.get(self.base).status_code, 404)
+        token = response.data["invitation"]["token"]
+        self.assertEqual(self.client.post(f"/api/invitations/{token}/accept/").status_code, 201)
+        self.assertEqual(self.project.members.get(user=self.foreman).role, "foreman")
+
+    def test_role_change_cannot_bypass_foreman_acceptance(self):
+        member = self.join(self.executor, "executor")
+        response = self.client.patch(self.base + f"members/{member.pk}/", {"role": "foreman"})
+        self.assertEqual(response.status_code, 400)
+        member.refresh_from_db()
+        self.assertEqual(member.role, "executor")
+
+    def test_project_edit_permissions_and_history(self):
+        response = self.client.patch(self.base, {"address": "Киевская, 10", "description": "Косметический ремонт"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["address"], "Киевская, 10")
+        self.assertTrue(self.project.events.filter(action="project.updated").exists())
+        self.join(self.foreman, "foreman")
+        self.client.force_authenticate(self.foreman)
+        self.assertEqual(self.client.patch(self.base, {"name": "Подмена"}).status_code, 403)
+        self.client.force_authenticate(self.stranger)
+        self.assertEqual(self.client.patch(self.base, {"name": "Подмена"}).status_code, 404)
 
     def test_anonymous_access_is_denied(self):
         self.client.force_authenticate(None)
@@ -156,12 +224,12 @@ class ProjectAPITests(APITestCase):
 
     def test_real_session_login(self):
         self.client.force_authenticate(None)
-        self.assertTrue(self.client.login(username="customer", password="test-password"))
+        self.assertTrue(self.client.login(username="owner@example.com", password="test-password"))
         self.assertEqual(self.client.get(self.base).status_code, 200)
 
     def test_session_mutations_require_csrf_token(self):
         client = APIClient(enforce_csrf_checks=True)
-        self.assertTrue(client.login(username="customer", password="test-password"))
+        self.assertTrue(client.login(username="owner@example.com", password="test-password"))
         self.assertEqual(client.post("/api/projects/", {"name": "Без CSRF"}).status_code, 403)
         client.get("/api/auth/login/")
         token = client.cookies["csrftoken"].value
@@ -177,8 +245,8 @@ class DemoCommandTests(APITestCase):
         project = Project.objects.get(name="Демонстрационный ремонт")
         self.assertEqual(project.members.count(), 3)
         self.assertEqual(project.stages.count(), 1)
-        self.assertTrue(self.client.login(username="demo_foreman", password="Demo-test-password"))
+        self.assertTrue(self.client.login(username="foreman@example.com", password="Demo-test-password"))
         self.assertEqual(self.client.get(f"/api/projects/{project.pk}/stages/").status_code, 200)
         call_command("seed_demo", password="Another-password", stdout=output)
         self.assertEqual(Project.objects.count(), 1)
-        self.assertTrue(self.client.login(username="demo_foreman", password="Demo-test-password"))
+        self.assertTrue(self.client.login(username="foreman@example.com", password="Demo-test-password"))

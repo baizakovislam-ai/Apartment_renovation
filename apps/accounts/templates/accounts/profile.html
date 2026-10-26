@@ -1,0 +1,21 @@
+{% extends 'workspace/base.html' %}{% load workspace_ui %}{% block title %}Мой профиль{% endblock %}{% block content %}<div class="page-title">
+<div>
+<span class="eyebrow">Аккаунт</span>
+<h1>Мой профиль</h1>
+<p>Данные учётной записи и подтверждение почты.</p>
+</div>
+<a class="button button--primary" href="{% url 'workspace:dashboard' %}">Открыть рабочую панель {% icon 'arrow' %}</a>
+</div>
+<section class="card profile-panel">
+<span class="avatar avatar--teal">{{ user|initials }}</span>
+<h2>{{ user|display_name }}</h2>
+<dl>
+<dt>Электронная почта</dt>
+<dd>{{ user.email }}</dd>
+<dt>Дата регистрации</dt>
+<dd>{{ user.date_joined|date:'d.m.Y H:i' }}</dd>
+<dt>Подтверждение email</dt>
+<dd>{% if user.is_email_verified %}<span class="badge badge--green">Подтверждён</span>{% else %}<a href="{% url 'accounts:resend_verification' %}">Отправить письмо подтверждения</a>{% endif %}</dd>
+</dl>
+<a class="button button--secondary" href="{% url 'accounts:password_reset' %}">Изменить пароль</a>
+</section>{% endblock %}

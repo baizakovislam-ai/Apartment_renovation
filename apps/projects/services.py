@@ -1,11 +1,14 @@
 from functools import wraps
 
 from django.db import IntegrityError, transaction
+from django.contrib.auth import get_user_model
+from django.core.validators import validate_email
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
-from .models import Project, ProjectEvent, ProjectInvitation, ProjectMember
+from .models import Project, ProjectEvent, ProjectInvitation, ProjectMember, SavedContact
 from .permissions import require_customer
 
 
@@ -29,11 +32,65 @@ def record_event(project, actor, action, **data):
 
 
 @atomic_operation
-def create_project(*, user, name):
-    project = Project.objects.create(name=name, created_by=user)
+def create_project(*, user, name, address="", description=""):
+    project = Project.objects.create(name=name, address=address, description=description, created_by=user)
     ProjectMember.objects.create(project=project, user=user, role=ProjectMember.Role.CUSTOMER)
     record_event(project, user, "project.created")
     return project
+
+
+@atomic_operation
+def update_project(*, project, actor, **data):
+    project = lock_project(project)
+    require_customer(project, actor)
+    before = {key: getattr(project, key) for key in data}
+    for key, value in data.items():
+        if key not in {"name", "address", "description"}:
+            raise ValidationError("Недопустимое поле проекта.")
+        setattr(project, key, value)
+    project.save()
+    record_event(project, actor, "project.updated", before=before, after=data)
+    return project
+
+
+def remember_contact(owner, email, name=""):
+    contact, _ = SavedContact.objects.get_or_create(owner=owner, email=email.strip().lower())
+    if name:
+        contact.name = name
+    contact.save()
+    return contact
+
+
+@atomic_operation
+def add_member(*, project, actor, email="", contact_id=None, role="executor"):
+    project = lock_project(project)
+    require_customer(project, actor)
+    if bool(email) == bool(contact_id):
+        raise ValidationError("Выберите контакт из списка или укажите email.")
+    if contact_id:
+        contact = get_object_or_404(SavedContact, owner=actor, pk=contact_id)
+        email = contact.email
+    email = email.strip().lower()
+    try:
+        validate_email(email)
+    except DjangoValidationError:
+        raise ValidationError({"email": "Укажите корректный email."})
+    if role not in ["foreman", "executor"]:
+        raise ValidationError({"role": "Выберите прораба или исполнителя."})
+    expire_invitations(project)
+    if project.members.filter(user__email__iexact=email).exists():
+        raise ValidationError({"email": "Пользователь уже участвует в проекте."})
+    if project.invitations.filter(email__iexact=email, status="pending").exists():
+        raise ValidationError({"email": "Для этого email уже есть ожидающее приглашение ниже."})
+    if role == "foreman" and (project.members.filter(role="foreman").exists() or project.invitations.filter(role="foreman", status="pending").exists()):
+        raise ValidationError({"role": "Прораб уже назначен или приглашён в проект."})
+    user = get_user_model().objects.filter(email__iexact=email, is_active=True, is_email_verified=True).first()
+    if role == "foreman" or user is None:
+        return invite_member(project=project, actor=actor, email=email, role=role)
+    member = ProjectMember.objects.create(project=project, user=user, role=role)
+    remember_contact(actor, email, user.get_full_name())
+    record_event(project, actor, "member.added", member_id=member.pk, email=email, role=role)
+    return member
 
 
 def expire_invitations(project):
@@ -53,7 +110,8 @@ def invite_member(*, project, actor, email, role):
     if role == "foreman" and project.members.filter(role="foreman").exists():
         raise ValidationError({"role": "В проекте уже есть прораб."})
     invitation = ProjectInvitation.objects.create(project=project, email=email, role=role, invited_by=actor)
-    record_event(project, actor, "invitation.created", invitation_id=invitation.pk, role=role)
+    remember_contact(actor, email)
+    record_event(project, actor, "invitation.created", invitation_id=invitation.pk, email=email, role=role)
     return invitation
 
 
@@ -71,6 +129,7 @@ def accept_invitation(*, token, user):
     if project.members.filter(user=user).exists():
         raise ValidationError("Вы уже участвуете в проекте.")
     member = ProjectMember.objects.create(project=project, user=user, role=invitation.role)
+    remember_contact(invitation.invited_by, invitation.email, user.get_full_name())
     invitation.status = "accepted"
     invitation.accepted_at = timezone.now()
     invitation.save(update_fields=["status", "accepted_at"])
@@ -99,12 +158,12 @@ def change_member_role(*, project, actor, member_id, role):
         raise ValidationError("Изменение роли заказчика не поддерживается.")
     if member.role == role:
         return member
+    if role == "foreman":
+        raise ValidationError("Прораб должен принять приглашение. Сначала удалите пользователя из исполнителей, затем пригласите его как прораба.")
     if member.responsible_stages.exists():
         raise ValidationError("Сначала переназначьте ответственного в этапах.")
-    if role == "foreman":
-        expire_invitations(project)
-        if project.invitations.filter(status="pending", role="foreman").exists():
-            raise ValidationError("Сначала отмените ожидающее приглашение прорабу.")
+    if member.assigned_tasks.exists() or member.assigned_remarks.exists():
+        raise ValidationError("Участник связан с задачами или замечаниями. Сначала переназначьте задачи; историю замечаний необходимо сохранить.")
     old_role = member.role
     member.role = role
     member.save(update_fields=["role"])
@@ -121,5 +180,8 @@ def remove_member(*, project, actor, member_id):
         raise ValidationError("Нельзя удалить заказчика проекта.")
     if member.responsible_stages.exists():
         raise ValidationError("Сначала переназначьте ответственного в этапах.")
-    record_event(project, actor, "member.removed", member_id=member.pk, user_id=member.user_id, role=member.role)
+    if member.assigned_tasks.exists() or member.assigned_remarks.exists():
+        raise ValidationError("Участник связан с задачами или замечаниями. Сначала переназначьте задачи; историю замечаний необходимо сохранить.")
+    record_event(project, actor, "member.removed", member_id=member.pk, user_id=member.user_id, email=member.user.email, role=member.role)
+    remember_contact(actor, member.user.email, member.user.get_full_name())
     member.delete()

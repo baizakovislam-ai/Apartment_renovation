@@ -1,0 +1,13 @@
+<div class="project-navigation">
+  <a class="project-back" href="{% url 'workspace:projects' %}">← Все проекты</a>
+  <nav class="project-tabs" aria-label="Разделы проекта {{ project.name }}">
+    <a href="{% url 'workspace:project-detail' project.pk %}" {% if page == 'project-detail' %}aria-current="page"{% endif %}>Обзор проекта</a>
+    <a href="{% url 'workspace:stages' project.pk %}" {% if page == 'stages' %}aria-current="page"{% endif %}>Этапы ремонта</a>
+    <a href="{% url 'workspace:tasks' project.pk %}" {% if page == 'tasks' %}aria-current="page"{% endif %}>Задачи</a>
+    <a href="{% url 'workspace:reports' project.pk %}" {% if page == 'reports' %}aria-current="page"{% endif %}>Фотоотчёты</a>
+    {% if is_manager %}<a href="{% url 'workspace:acceptance' project.pk %}" {% if page == 'acceptance' %}aria-current="page"{% endif %}>Приёмка</a>{% endif %}
+    <a href="{% url 'workspace:remarks' project.pk %}" {% if page == 'remarks' %}aria-current="page"{% endif %}>Замечания</a>
+    <a href="{% url 'workspace:members' project.pk %}" {% if page == 'members' %}aria-current="page"{% endif %}>Команда</a>
+    {% if is_manager %}<a href="{% url 'workspace:history' project.pk %}" {% if page == 'history' %}aria-current="page"{% endif %}>История</a>{% endif %}
+  </nav>
+</div>

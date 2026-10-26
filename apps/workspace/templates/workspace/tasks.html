@@ -1,0 +1,11 @@
+{% extends 'workspace/base.html' %}{% load workspace_ui %}
+{% block title %}Задачи{% endblock %}
+{% block content %}
+<div class="page-title"><div><span class="eyebrow">План и выполнение</span><h1>{% if is_executor %}Мои задачи{% else %}Задачи проекта{% endif %}</h1><p>{% if is_executor %}Вам доступны только назначенные вам задачи и их фотоотчёты.{% else %}Распределяйте работы, проверяйте результаты и контролируйте сроки.{% endif %}</p></div>{% if is_manager %}<a class="button button--primary" href="{% url 'workspace:task-create' project.pk %}">{% icon 'plus' %} Новая задача</a>{% endif %}</div>
+{% include 'workspace/_progress.html' %}
+<div class="work-list">{% for task in tasks %}
+<article class="card work-panel task-card"><div class="work-heading"><div><small class="eyebrow">{{ task.stage.name }}</small><h2><a href="{% url 'workspace:task-detail' project.pk task.pk %}">{{ task.name }}</a></h2></div><span class="badge badge--{% if task.status == 'done' %}green{% elif task.status == 'review' %}orange{% elif task.status == 'in_progress' %}blue{% else %}gray{% endif %}">{{ task.get_status_display }}</span></div>
+<p class="muted-text">{{ task.description|truncatechars:180 }}</p><div class="work-meta"><span>{% icon 'users' %} {{ task.assignee.user|display_name }}</span><span class="{% if task.due_date < today and task.status != 'done' %}overdue{% endif %}">{% icon 'history' %} До {{ task.due_date|date:'d.m.Y' }}{% if task.due_date < today and task.status != 'done' %} · Просрочена{% endif %}</span></div>
+<div class="card-actions"><a class="button button--secondary" href="{% url 'workspace:task-detail' project.pk task.pk %}">Открыть задачу →</a></div></article>
+{% empty %}<section class="card empty-state">{% icon 'stages' %}<h2>Задач пока нет</h2><p>{% if is_manager %}Добавьте этап и исполнителя в команду, затем создайте первую задачу.{% else %}Здесь появятся работы, которые назначит вам заказчик или прораб.{% endif %}</p></section>{% endfor %}</div>
+{% endblock %}

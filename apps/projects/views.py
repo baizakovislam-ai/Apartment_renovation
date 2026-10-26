@@ -6,10 +6,10 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from . import services
-from .models import Project
+from .models import Project, ProjectMember, SavedContact
 from .permissions import require_customer, require_member
-from .serializers import (EventSerializer, InvitationCreateSerializer, InvitationSerializer,
-                          MemberRoleSerializer, MemberSerializer, ProjectSerializer)
+from .serializers import (ContactSerializer, EventSerializer, InvitationCreateSerializer, InvitationSerializer,
+                          MemberAddSerializer, MemberRoleSerializer, MemberSerializer, ProjectSerializer)
 
 
 def accessible_project(user, project_id):
@@ -27,12 +27,23 @@ class ProjectListCreateView(generics.ListCreateAPIView):
         serializer.instance = services.create_project(user=self.request.user, **serializer.validated_data)
 
 
-class ProjectDetailView(generics.RetrieveAPIView):
+class ProjectDetailView(generics.RetrieveUpdateAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = ProjectSerializer
 
     def get_queryset(self):
         return Project.objects.filter(members__user=self.request.user)
+
+    def perform_update(self, serializer):
+        serializer.instance = services.update_project(project=serializer.instance, actor=self.request.user, **serializer.validated_data)
+
+
+class ContactListView(generics.ListAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = ContactSerializer
+
+    def get_queryset(self):
+        return SavedContact.objects.filter(owner=self.request.user)
 
 
 class MemberListView(APIView):
@@ -41,6 +52,17 @@ class MemberListView(APIView):
     def get(self, request, project_id):
         project = accessible_project(request.user, project_id)
         return Response(MemberSerializer(project.members.select_related("user"), many=True).data)
+
+    def post(self, request, project_id):
+        project = accessible_project(request.user, project_id)
+        serializer = MemberAddSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        result = services.add_member(project=project, actor=request.user, **serializer.validated_data)
+        if isinstance(result, ProjectMember):
+            data = {"kind": "member", "member": MemberSerializer(result).data}
+        else:
+            data = {"kind": "invitation", "invitation": InvitationSerializer(result).data}
+        return Response(data, status=status.HTTP_201_CREATED)
 
 
 class MemberDetailView(APIView):

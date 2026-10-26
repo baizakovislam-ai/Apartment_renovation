@@ -10,10 +10,14 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.1/ref/settings/
 """
 
+import os
 from pathlib import Path
+
+from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+load_dotenv(BASE_DIR / ".env", override=False)
 
 
 # Quick-start development settings - unsuitable for production
@@ -25,14 +29,27 @@ SECRET_KEY = 'django-insecure--_%8$6k&d1d4r6!dbpmklcg&#wp#d%a%(2&fj-j49iwcg&d7+8
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
-
+ALLOWED_HOSTS = [
+    "127.0.0.1",
+    "localhost",
+    "f49d-95-87-64-161.ngrok-free.app",
+]
+CSRF_TRUSTED_ORIGINS = [
+    "https://f49d-95-87-64-161.ngrok-free.app",
+]
 
 # Application definition
 
 INSTALLED_APPS = [
+    'django.contrib.admin',
+        'django.contrib.auth',
+        'django.contrib.contenttypes',
+        'django.contrib.sessions',
+        'django.contrib.messages',
+        'django.contrib.staticfiles',
     'rest_framework',
     'apps.accounts',
+    'apps.workspace',
     'apps.projects',
     'apps.repairs',
     'apps.quality',
@@ -42,12 +59,7 @@ INSTALLED_APPS = [
     'apps.communications',
     'apps.reports',
 
-    'django.contrib.admin',
-    'django.contrib.auth',
-    'django.contrib.contenttypes',
-    'django.contrib.sessions',
-    'django.contrib.messages',
-    'django.contrib.staticfiles',
+    
 ]
 
 MIDDLEWARE = [
@@ -126,6 +138,7 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.1/howto/static-files/
 
 STATIC_URL = 'static/'
+MEDIA_ROOT = BASE_DIR / "media"
 
 
 # Email
@@ -133,10 +146,62 @@ STATIC_URL = 'static/'
 
 MAILERS = {
     'default': {
-        'BACKEND': 'django.core.mail.backends.console.EmailBackend',
+        'BACKEND': 'django.core.mail.backends.smtp.EmailBackend',
+        'OPTIONS': {
+            'host': os.getenv('EMAIL_HOST', 'smtp.gmail.com'),
+            'port': int(os.getenv('EMAIL_PORT', '587')),
+            'username': os.getenv('EMAIL_HOST_USER', '').strip(),
+            'password': os.getenv('EMAIL_HOST_PASSWORD', '').replace(' ', ''),
+            'use_tls': True,
+            'timeout': 15,
+        },
     },
 }
 
+AUTH_USER_MODEL = "accounts.User"
+
+LOGIN_URL = "accounts:login"
+LOGIN_REDIRECT_URL = "accounts:profile"
+LOGOUT_REDIRECT_URL = "accounts:login"
+
+LANGUAGE_CODE = "ru"
+TIME_ZONE = "Asia/Bishkek"
+USE_TZ = True
+
+# Argon2id (ТЗ п. 4.17); остальные хешеры оставлены, чтобы читались старые хеши
+PASSWORD_HASHERS = [
+    "django.contrib.auth.hashers.Argon2PasswordHasher",
+    "django.contrib.auth.hashers.PBKDF2PasswordHasher",
+    "django.contrib.auth.hashers.BCryptSHA256PasswordHasher",
+]
+
+AUTH_PASSWORD_VALIDATORS = [
+    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
+    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator", "OPTIONS": {"min_length": 8}},
+    {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
+    {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
+]
+
+# Срок действия ссылок подтверждения email и сброса пароля, секунд (24 часа)
+PASSWORD_RESET_TIMEOUT = 60 * 60 * 24
+
+# Ограничение попыток входа (ТЗ п. 4.17)
+LOGIN_MAX_ATTEMPTS = 5
+LOGIN_LOCK_MINUTES = 15
+
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL") or f"Контроль ремонта <{os.getenv('EMAIL_HOST_USER') or 'no-reply@example.com'}>"
+EMAIL_VERIFICATION_TTL_SECONDS = 10 * 60
+EMAIL_VERIFICATION_RESEND_SECONDS = 60
+EMAIL_VERIFICATION_MAX_ATTEMPTS = 5
+EMAIL_VERIFICATION_MAX_SENDS_PER_HOUR = 5
+# Для боевого сервера (HTTPS):
+# SESSION_COOKIE_SECURE = True
+# CSRF_COOKIE_SECURE = True
+# SECURE_SSL_REDIRECT = True
+
+# ====== Добавьте в config/urls.py ======
+# from django.urls import include, path
+# urlpatterns += [path("accounts/", include("apps.accounts.urls"))]
 
 # Every API endpoint requires a signed-in user by default.
 REST_FRAMEWORK = {

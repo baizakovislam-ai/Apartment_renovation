@@ -1,0 +1,17 @@
+{% extends 'workspace/base.html' %}{% load workspace_ui %}{% block title %}История изменений{% endblock %}{% block content %}<div class="page-title">
+<div>
+<span class="eyebrow">Прозрачность работы</span>
+<h1>История изменений</h1>
+<p>Последние 100 событий проекта «{{ project.name }}».</p>
+</div>
+</div>
+<section class="card history-list">{% for event in events %}<div class="history-row">
+<span class="history-dot history-dot--blue">{% icon 'history' %}</span>
+<div>
+<strong>{{ event.action|event_label }}</strong>
+<p>{{ event.actor|display_name }}{% if event.data.name %} · {{ event.data.name }}{% elif event.data.email %} · {{ event.data.email }}{% elif event.data.stage_id %} · Этап № {{ event.data.stage_id }}{% endif %}</p>
+<small>{{ event.created_at|date:'d E Y, H:i' }}</small>
+</div>
+</div>{% empty %}<div class="empty-state">
+<p>Событий пока нет.</p>
+</div>{% endfor %}</section>{% endblock %}

@@ -1,0 +1,13 @@
+{% extends "accounts/base_auth.html" %}
+{% block title %}Получить код подтверждения{% endblock %}
+{% block content %}
+  <h1>Получить код подтверждения</h1>
+  <p class="lead">Укажите email, который вы использовали при регистрации. Если адрес ещё не подтверждён, мы отправим шестизначный код.</p>
+  <form method="post" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="alert" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+    {% for field in form %}{% include "accounts/_field.html" %}{% endfor %}
+    <button class="btn" type="submit">Получить код</button>
+  </form>
+  <div class="links">{% if request.session.pending_verification_email %}<a href="{% url 'accounts:check_email' %}">У меня уже есть код</a>{% endif %}<a href="{% url 'accounts:login' %}">Вернуться ко входу</a></div>
+{% endblock %}

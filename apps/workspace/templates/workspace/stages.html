@@ -1,0 +1,13 @@
+{% extends 'workspace/base.html' %}{% load workspace_ui %}{% block title %}Этапы ремонта{% endblock %}{% block content %}<div class="page-title">
+<div>
+<span class="eyebrow">План ремонта</span>
+<h1>Этапы ремонта</h1>
+<p>Последовательность работ, сроки и ответственные в проекте «{{ project.name }}».</p>
+</div>{% if is_manager %}<a class="button button--primary" href="{% url 'workspace:stage-create' project.pk %}">{% icon 'plus' %} Добавить этап</a>{% endif %}</div>
+<form class="toolbar filter-form" method="get">
+<label class="search">{% icon 'search' %}<input name="q" value="{{ query }}" placeholder="Поиск этапа" aria-label="Поиск этапа">
+</label>
+<select name="status" aria-label="Статус этапа">
+<option value="">Все статусы</option>{% for value,label in stage_statuses %}<option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+<button class="button button--secondary" type="submit">Применить</button>{% if query or status_filter %}<a href="{% url 'workspace:stages' project.pk %}">Сбросить</a>{% endif %}</form>
+{% include 'workspace/_quick_stage.html' %}{% include 'workspace/_stage_cards.html' %}{% endblock %}

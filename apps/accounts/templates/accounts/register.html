@@ -1,0 +1,13 @@
+{% extends "accounts/base_auth.html" %}
+{% block title %}Регистрация{% endblock %}
+{% block content %}
+  <h1>Создать аккаунт</h1>
+  <p class="lead">Укажите свои данные. На вашу почту придёт шестизначный код подтверждения.</p>
+  <form method="post" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="alert">{{ form.non_field_errors }}</div>{% endif %}
+    {% for field in form %}{% include "accounts/_field.html" %}{% endfor %}
+    <button class="btn" type="submit">Создать аккаунт и получить код</button>
+  </form>
+  <div class="links"><a href="{% url 'accounts:login' %}">Уже есть аккаунт? Войти</a></div>
+{% endblock %}

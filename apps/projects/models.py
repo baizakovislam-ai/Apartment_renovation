@@ -16,9 +16,11 @@ def invitation_expiry():
 
 
 class Project(models.Model):
-    """Minimal project foundation; project lifecycle belongs to the projects owner."""
+    """Apartment project shared by its team and repair stages."""
 
     name = models.CharField(max_length=200)
+    address = models.CharField(max_length=300, blank=True)
+    description = models.TextField(blank=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="created_projects")
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -27,6 +29,20 @@ class Project(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class SavedContact(models.Model):
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="saved_contacts")
+    email = models.EmailField()
+    name = models.CharField(max_length=150, blank=True)
+    last_used_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-last_used_at", "id"]
+        constraints = [models.UniqueConstraint(fields=["owner", "email"], name="unique_saved_contact")]
+
+    def __str__(self):
+        return f"{self.name} — {self.email}" if self.name else self.email
 
 
 class ProjectMember(models.Model):

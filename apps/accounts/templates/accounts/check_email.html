@@ -1,0 +1,18 @@
+{% extends "accounts/base_auth.html" %}{% load static %}
+{% block title %}Подтверждение почты{% endblock %}
+{% block content %}
+  <span class="eyebrow">Подтверждение email</span>
+  <h1>Введите код из письма</h1>
+  <p class="lead">Код отправлен на <strong class="verification-email">{{ email }}</strong>. Введите 6 цифр, чтобы подтвердить адрес.</p>
+  <form method="post" novalidate>{% csrf_token %}
+    {% for field in form %}{% include 'accounts/_field.html' %}{% endfor %}
+    <p class="verification-help">Код действует 10 минут. Используйте код из последнего письма.</p>
+    <button class="btn" type="submit">Подтвердить почту</button>
+  </form>
+  <form class="verification-resend" method="post" action="{% url 'accounts:resend_code' %}">{% csrf_token %}
+    <button class="btn secondary" type="submit" data-resend-seconds="{{ resend_seconds }}" {% if resend_seconds %}disabled{% endif %}>{% if resend_seconds %}Отправить повторно через {{ resend_seconds }} сек.{% else %}Отправить код повторно{% endif %}</button>
+    <p class="verification-help">Письма нет? Проверьте папку «Спам» или запросите новый код.</p>
+  </form>
+  <div class="links"><a href="{% url 'accounts:resend_verification' %}">Указать другой email</a><a href="{% url 'accounts:login' %}">Вернуться ко входу</a></div>
+  <script src="{% static 'accounts/verification.js' %}" defer></script>
+{% endblock %}

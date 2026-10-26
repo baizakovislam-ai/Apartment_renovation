@@ -1,0 +1,286 @@
+/* Django integration of the supplied UI: preserve its palette, layout and components. */
+body {font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; line-height:1.5}
+
+a {color:inherit;text-decoration:none}
+button,a,input,select,textarea,summary{ -webkit-tap-highlight-color:transparent }
+
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,summary:focus-visible{outline:3px solid #3b82f6;outline-offset:3px}
+
+[hidden]{display:none!important}
+.sr-only,.skip-link:not(:focus){position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.skip-link:focus{position:fixed;top:10px;left:10px;z-index:100;padding:12px;background:white;border:2px solid var(--blue)}
+
+.header__right{margin-left:auto;display:flex;align-items:center;gap:18px}
+.header-date{color:var(--muted);font-size:12px}
+.sidebar .brand{flex-shrink:0}
+.sidebar__close{position:absolute;right:12px;top:20px}
+.logout-button{font-size:11px;margin-top:12px}
+.logout-button svg{margin-left:auto}
+.profile-mini strong{white-space:normal;overflow-wrap:anywhere}
+.nav__item{font-size:13px;padding:11px 10px}
+.nav__label{margin-top:8px}
+.sidebar__bottom{margin-top:auto}
+.sidebar .nav{margin-bottom:20px}
+.mobile-overlay{border:0}
+.workspace-footer{margin-top:44px;border-top:1px solid var(--border);padding-top:20px;display:flex;justify-content:space-between;font-size:11px;color:var(--muted)}
+
+.page-title h1{font-size:28px}
+.page-title p{font-size:13px;line-height:1.7}
+.eyebrow{font-size:10px}
+.button{font-size:12px;gap:8px;white-space:normal}
+.card h2{font-size:17px}
+.card-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:20px}
+.card-actions form{margin:0}
+.badge{font-size:11px;white-space:normal}
+.muted-text{color:var(--muted);font-size:13px;line-height:1.7}
+.messages{display:grid;gap:10px;margin-bottom:20px}
+.notice{padding:14px 18px;border-radius:10px;background:var(--blue-soft);border:1px solid #bfdbfe;font-size:13px;overflow-wrap:anywhere}
+.notice--error,.alert:not(.ok){background:var(--red-soft);border:1px solid #fecaca;color:#991b1b}
+.notice--success,.alert.ok{background:var(--green-soft);border:1px solid #bbf7d0;color:#166534}
+.notice ul{margin:0;padding-left:20px}
+.empty-state{text-align:center;padding:65px 28px;grid-column:1/-1}
+.empty-state>svg{width:40px;height:40px;color:var(--blue);margin-bottom:10px}
+.empty-state h2,.empty-state h3{font-size:19px;margin:10px 0}
+.empty-state p{color:var(--muted);max-width:520px;margin:10px auto 24px;line-height:1.7}
+.empty-state.compact{padding:30px 12px}
+.empty-state.compact h3{font-size:16px}
+
+.project-picker{display:flex;gap:12px;align-items:center;margin-bottom:24px}
+.project-picker label{font-size:12px;color:var(--muted)}
+select,.field input,.field textarea{background:#fff;color:var(--text);border:1px solid var(--border);border-radius:8px;padding:11px 12px;min-height:42px;max-width:100%}
+.project-picker select{min-width:180px;max-width:380px}
+.metric>strong{font-size:26px}
+.metric>span{font-size:12px}
+.metric>small{font-size:10px;line-height:1.5}
+.metrics{margin-bottom:24px}
+.summary-row{display:flex;align-items:center;gap:12px;padding:17px 0;border-bottom:1px solid var(--border-light)}
+.summary-row>div{flex:1;min-width:0}
+.summary-row strong{font-size:13px;display:block;overflow-wrap:anywhere}
+.summary-row small{display:block;font-size:11px;color:var(--muted);margin-top:4px}
+.summary-index{font-size:12px;color:var(--blue);font-weight:600;background:var(--blue-soft);padding:7px;border-radius:8px}
+.deadline-row{display:flex;align-items:center;gap:10px;padding:17px 0;border-bottom:1px solid var(--border-light)}
+.deadline-row>div{flex:1;min-width:0}
+.deadline-row strong{display:block;font-size:12px;overflow-wrap:anywhere}
+.deadline-row small{display:block;font-size:11px;color:var(--muted);margin-top:4px}
+.deadline{font-size:11px;white-space:nowrap;color:var(--muted)}
+.overdue{color:#b91c1c}
+.team-banner{margin-top:22px;padding:28px;display:flex;align-items:center;justify-content:space-between;gap:20px}
+.team-banner p{color:var(--muted);font-size:13px;max-width:620px}
+.team-banner h2{margin:6px 0 0}
+
+.filter-form{gap:12px;flex-wrap:wrap;justify-content:flex-start}
+.filter-form .search{margin:0;max-width:450px;min-width:180px;height:42px}
+.filter-form select{font-size:12px}
+.filter-form>a{color:var(--blue);font-size:12px}
+.filter-form .muted-text{margin-left:auto}
+.project-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:22px}
+.live-project-card{overflow:hidden}
+.project-illustration{height:155px;background:linear-gradient(125deg,#eaf2fc,#eefaf8);color:#8caacb;position:relative;display:flex;align-items:flex-end}
+.project-illustration svg{height:145px;width:100%}
+.project-illustration .badge{position:absolute;top:18px;left:20px}
+.live-project-card h2{margin:10px 0;font-size:21px;overflow-wrap:anywhere}
+.live-project-card p{font-size:12px;color:var(--muted)}
+.project-list-card__body{padding:24px}
+.project-meta{margin-top:22px}
+.project-meta small{font-size:11px}
+.project-meta strong{font-size:16px}
+.project-meta span{min-width:80px}
+
+.live-timeline .timeline-item__body{display:block;min-width:0;padding:23px 26px}
+.live-timeline .timeline-item__head{display:flex;justify-content:space-between;gap:15px}
+.live-timeline .timeline-item__head h2{font-size:18px;overflow-wrap:anywhere}
+.live-timeline .timeline-item__meta{display:flex;flex-wrap:wrap;gap:25px;margin-top:20px}
+.live-timeline .timeline-item__meta small{font-size:11px}
+.live-timeline .timeline-item__meta strong,.live-timeline .person{font-size:12px}
+.live-timeline .timeline-item__meta>span{min-width:170px}
+.stage-description{font-size:13px;color:var(--muted);line-height:1.7;overflow-wrap:anywhere;margin:12px 0}
+.timeline-item__index{font-size:12px}
+.live-form{max-width:1000px}
+.live-form .form-section{grid-template-columns:220px minmax(0,1fr)}
+.live-form .form-section h2{font-size:16px}
+.field{display:flex;flex-direction:column;gap:7px;margin-bottom:19px}
+.field label{font-weight:500;font-size:13px}
+.field input,.field textarea,.field select{width:100%;font-size:14px}
+.field textarea{resize:vertical}
+.field .errors{font-size:12px;color:#b91c1c}
+.field .help{font-size:12px;color:var(--muted)}
+.field ul{padding-left:18px;margin:0}
+.has-error input,.has-error select,.has-error textarea{border-color:var(--red)}
+.full-form__footer{display:flex;justify-content:flex-end;gap:10px}
+.people-grid{grid-template-columns:minmax(0,1fr) 300px}
+.member-row{grid-template-columns:38px minmax(0,1fr) auto 30px}
+.member-row strong{font-size:13px;overflow-wrap:anywhere}
+.member-row small{font-size:11px;overflow-wrap:anywhere}
+.access-card p{font-size:12px}
+.access-card h2{font-size:17px}
+.member-controls{position:relative}
+.member-controls summary{cursor:pointer;font-weight:700;list-style:none;padding:8px}
+.member-controls>div{position:absolute;right:0;top:38px;z-index:5;width:230px;background:white;box-shadow:var(--shadow);border:1px solid var(--border);border-radius:10px;padding:15px}
+.member-controls form{display:grid;gap:10px;margin-bottom:8px}
+.member-controls label{font-size:12px}
+.invite-card{display:grid;grid-template-columns:1fr 1fr;gap:35px;padding:28px;margin-top:24px;scroll-margin-top:90px}
+.invite-card h2{margin:8px 0}
+.invitations-card{padding:25px;margin-top:24px}
+.invitations-card .card__head small{font-size:12px;color:var(--muted)}
+.invitation-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;border-top:1px solid var(--border);padding:20px 0}
+.invitation-row strong{font-size:13px;overflow-wrap:anywhere}
+.invitation-row small{display:block;font-size:11px;color:var(--muted);margin-top:5px}
+.invitation-link{grid-column:1/-1;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.invitation-link input{flex:1;min-width:120px;font-size:12px;background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:10px;color:var(--muted)}
+.history-list{padding:12px 25px}
+.history-row strong{font-size:14px}
+.history-row p{font-size:12px}
+.history-row small{font-size:11px}
+.accept-card{max-width:660px;padding:35px;margin:30px auto}
+.accept-card p{font-size:14px}
+.accept-card .notice{margin:20px 0}
+
+/* Account screens keep Django validation and email verification. */
+.auth-page{min-height:100vh;padding:36px;display:grid;place-items:center}
+.auth-page .auth-stage{width:min(1150px,100%);min-height:calc(100vh - 72px)}
+.auth-page .auth-card{width:460px;padding:45px;min-width:0}
+.auth-page .auth-visual{padding:55px 45px}
+.auth-page .auth-visual h1{font-size:39px;line-height:1.2}
+.auth-page .auth-visual p{font-size:14px;line-height:1.8}
+.auth-page .auth-visual__brand{font-size:16px}
+.auth-page .auth-card h1{font-size:27px;line-height:1.25;margin:8px 0 12px;letter-spacing:-.035em}
+.auth-page .lead{font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:24px}
+.auth-page .btn{width:100%;min-height:43px;border:0;border-radius:8px;background:var(--blue);color:white;font-weight:600;padding:12px;font-size:14px;cursor:pointer}
+.auth-page .btn.secondary{color:var(--text);background:var(--bg);border:1px solid var(--border)}
+.auth-page .links{display:grid;gap:12px;margin-top:22px;font-size:12px;color:var(--blue);line-height:1.6}
+.auth-page .alert{padding:12px 15px;border-radius:8px;font-size:13px;margin-bottom:18px}
+.auth-page .alert ul{padding-left:16px;margin:0}
+.auth-visual .eyebrow{color:#93c5fd}
+.auth-footnote{font-size:12px;color:#9eb1c8;max-width:390px}
+.auth-page .profile{font-size:14px}
+.auth-page .profile dt{color:var(--muted);font-size:12px;margin-top:14px}
+.auth-page .profile dd{margin:3px 0 18px;overflow-wrap:anywhere}
+.profile-panel{padding:30px;max-width:700px}
+.profile-panel dl{display:grid;grid-template-columns:160px 1fr;gap:18px;font-size:14px}
+.profile-panel dt{color:var(--muted)}
+.profile-panel dd{margin:0;overflow-wrap:anywhere}
+
+@media(max-width:1100px){.people-grid{grid-template-columns:minmax(0,1fr) 260px}
+.project-grid{gap:16px}
+.project-list-card__body{padding:20px}
+.auth-page{padding:20px}
+.auth-page .auth-visual{padding:35px}
+.auth-page .auth-visual h1{font-size:32px}
+.auth-page .auth-card{padding:30px}
+}
+
+@media(max-width:800px){.sidebar{overflow-y:auto}
+.menu-is-open{overflow:hidden}
+.page-title{flex-wrap:wrap}
+.page-title .button{font-size:12px;width:auto;padding:10px 14px}
+.header-date{display:none}
+.people-grid,.project-grid,.invite-card{grid-template-columns:1fr}
+.team-banner{align-items:flex-start;flex-direction:column}
+.live-form .form-section{grid-template-columns:1fr}
+.project-picker{flex-wrap:wrap}
+.project-picker select{flex:1;max-width:100%}
+.auth-page{padding:0;display:block}
+.auth-page .auth-stage{border-radius:0;min-height:100vh}
+.auth-page .auth-visual{min-height:260px;padding:30px;gap:24px}
+.auth-page .auth-visual h1{font-size:29px;max-width:500px}
+.auth-footnote{display:none}
+.auth-page .auth-card{width:100%;max-width:490px;padding:35px 25px}
+.header__right{gap:8px}
+.live-timeline .timeline-item__meta{gap:14px}
+}
+
+@media(max-width:520px){.metric>strong{font-size:22px}
+.metric>span{font-size:11px}
+.metric>small{font-size:10px}
+.metrics{gap:12px}
+.card__head{flex-wrap:wrap}
+.card__head h2{font-size:16px}
+.summary-row{flex-wrap:wrap}
+.summary-row .badge{margin-left:40px}
+.summary-row>div{min-width:150px}
+.live-timeline .timeline-item__body{padding:18px}
+.live-timeline .timeline-item__head{flex-direction:column;align-items:flex-start}
+.member-list{padding:16px}
+.member-row{grid-template-columns:32px minmax(0,1fr) 28px}
+.member-row>.badge{grid-column:2;grid-row:auto;justify-self:start}
+.member-controls{grid-column:3;grid-row:1/3}
+.member-row>span:last-child:empty{display:none}
+.invitations-card,.invite-card{padding:20px}
+.invitations-card .card__head{gap:8px}
+.invitation-link{align-items:stretch}
+.invitation-link input{flex-basis:100%}
+.workspace-footer{flex-direction:column;gap:6px}
+.profile-panel dl{grid-template-columns:1fr;gap:8px}
+.profile-panel dd{margin-bottom:12px}
+.page-title h1{font-size:25px}
+.header .badge{max-width:130px}
+.auth-page .auth-visual h1{font-size:26px}
+.project-picker label{flex-basis:100%}
+}
+
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;scroll-behavior:auto!important}
+}
+
+/* Project workspace: local navigation, planning and reusable team. */
+.project-navigation{margin-bottom:28px}
+.project-back{display:inline-block;margin-bottom:18px;color:#64748b;font-size:14px}
+.project-tabs{display:flex;gap:8px;border-bottom:1px solid #dce3ed;overflow-x:auto}
+.project-tabs a{white-space:nowrap;padding:12px 16px;border-bottom:3px solid transparent;color:#64748b;font-weight:600}
+.project-tabs a[aria-current="page"]{color:#2563eb;border-color:#3b82f6}
+.project-description{margin:-8px 0 24px;max-width:900px;color:#526178;overflow-wrap:anywhere}
+.project-overview{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:28px}
+.project-progress,.project-team{padding:24px;min-width:0}
+.project-progress h2{margin:12px 0 20px}
+.project-progress progress{display:block;width:100%;height:12px;accent-color:#3b82f6;margin-bottom:16px}
+.project-person{display:flex;gap:12px;align-items:center;padding-top:14px;overflow-wrap:anywhere}
+.project-person small{display:block;color:#64748b;margin-top:3px}
+.quick-stage{padding:24px;margin-bottom:28px}
+.quick-stage h2{margin-bottom:6px}
+.quick-stage form{display:flex;gap:16px;align-items:flex-end;flex-wrap:wrap;margin-top:18px}
+.quick-stage-field{flex:1;min-width:220px}
+.quick-stage-field .field{margin-bottom:0}
+.quick-stage form>a{padding-bottom:12px;font-size:14px}
+.stage-order{display:flex;gap:4px;margin-left:auto}
+.stage-hint{font-size:13px;max-width:280px}
+.stage-actions{flex-wrap:wrap;align-items:center}
+.stage-actions button:disabled{opacity:.35;cursor:default}
+.timeline-item__head h2,.page-title h1{overflow-wrap:anywhere;min-width:0}
+@media(max-width:800px){.project-overview{grid-template-columns:1fr}.project-tabs a{padding:10px 12px}.quick-stage form{align-items:stretch}.quick-stage-field{flex-basis:100%}.stage-order{margin-left:0}}
+.role-summary{margin:18px 0;color:#526178}
+.customer-planning{margin-bottom:24px}
+.customer-planning>summary{cursor:pointer;color:#2563eb;padding:12px 0;font-weight:600}
+.customer-planning .quick-stage{margin-top:12px}
+
+/* Tasks, private photo reports and acceptance share the existing UI components. */
+.work-panel{padding:24px;min-width:0;margin-bottom:22px}
+.work-list{display:grid;gap:20px}
+.work-list>.work-panel{margin-bottom:0}
+.work-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+.work-heading h2{margin:4px 0 12px;overflow-wrap:anywhere}
+.work-heading .badge{flex-shrink:0}
+.work-meta{display:flex;flex-wrap:wrap;gap:12px 24px;color:var(--muted);font-size:12px}
+.work-meta>span{display:inline-flex;align-items:center;gap:6px;overflow-wrap:anywhere}
+.work-text{font-size:14px;line-height:1.8;white-space:normal;overflow-wrap:anywhere}
+.work-form{max-width:820px}
+.work-action-form{margin-top:22px;max-width:820px}
+.work-log{border-top:1px solid var(--border-light);padding:16px 0;font-size:12px;overflow-wrap:anywhere}
+.work-log:first-of-type{margin-top:20px}
+.work-log p{margin:6px 0;color:var(--muted)}
+.work-log .work-text{color:var(--text)}
+.photo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-top:18px}
+.photo-grid a{display:block;border-radius:10px;overflow:hidden;background:var(--bg)}
+.photo-grid img{display:block;width:100%;height:200px;object-fit:cover}
+.progress-panel progress{display:block;width:100%;height:12px;accent-color:var(--blue);margin:16px 0}
+.progress-panel h2{margin:8px 0}
+.progress-panel p{margin:8px 0}
+.work-shortcuts{margin:0 0 24px}
+.section-heading{margin:28px 0 18px}
+.work-decisions{margin-top:22px}
+.work-decisions summary{cursor:pointer;color:var(--blue);font-size:13px}
+.auth-page .verification-code{font-size:30px;letter-spacing:.3em;text-align:center;font-weight:600;font-variant-numeric:tabular-nums}
+.verification-email{overflow-wrap:anywhere}
+.verification-help{font-size:12px;line-height:1.7;color:var(--muted);margin:12px 0 20px}
+.verification-resend{margin-top:16px}
+.auth-page .btn:disabled{cursor:not-allowed;opacity:.65}
+.button:disabled{opacity:.45;cursor:not-allowed}
+@media(max-width:520px){.work-panel{padding:18px}.work-heading{flex-wrap:wrap}.photo-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.photo-grid img{height:140px}.work-meta{gap:10px}.work-action-form .card-actions{align-items:stretch;flex-direction:column}}

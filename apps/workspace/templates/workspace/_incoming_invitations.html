@@ -1,0 +1,11 @@
+{% if incoming_invitations %}
+<section class="card invitations-card">
+  <div class="card__head"><h2>Вас пригласили в проект</h2></div>
+  {% for invitation in incoming_invitations %}
+  <div class="invitation-row">
+    <div><strong>{{ invitation.project.name }}</strong><small>Ваша роль: {{ invitation.get_role_display }} · до {{ invitation.expires_at|date:'d.m.Y' }}</small></div>
+    <a class="button button--primary" href="{% url 'workspace:accept' invitation.token %}">Рассмотреть приглашение</a>
+  </div>
+  {% endfor %}
+</section>
+{% endif %}
