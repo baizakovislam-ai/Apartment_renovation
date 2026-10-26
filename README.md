@@ -1,3 +1,13 @@
+# PostgreSQL
+
+Подключение базы задаётся в `.env` через `DB_ENGINE=postgresql` и `POSTGRES_*`. Подготовка сервера, перенос существующих данных, открытие в pgAdmin и создание файла для передачи описаны в [docs/POSTGRESQL.md](docs/POSTGRESQL.md).
+
+# Этап 40%
+
+Реализованы задачи и контроль сроков, фотоотчёты, прогресс ремонта, приёмка этапов и замечания, а также полные данные проекта (адрес, площадь, сроки, бюджет). Новые разделы — в меню открытого проекта: «О проекте», «Задачи», «Приёмка работ», «Замечания». Описание правил, демо-сценарий для трёх ролей и API: [docs/MILESTONE_40.md](docs/MILESTONE_40.md).
+
+После обновления кода выполните `pip install -r requirements.txt` (добавлен Pillow) и `manage.py migrate`. Наполнить уже существующий демо-проект: `manage.py seed_milestone40`.
+
 # Backend — часть Ислама, 20%
 
 Реализованы участники проекта, приглашения и этапы ремонта. Подключён интерфейс на основе архива «Качественный UI_UX дизайн приложения»: рабочая панель, проекты, этапы, участники и история. Swagger пока не подключён.
@@ -12,8 +22,9 @@
 
 ```powershell
 .\venv\Scripts\python.exe -m pip install -r requirements.txt
+.\venv\Scripts\python.exe scripts/setup_postgres.py
 .\venv\Scripts\python.exe manage.py migrate
-.\venv\Scripts\python.exe manage.py seed_demo
+.\venv\Scripts\python.exe manage.py runserver 127.0.0.1:8001
 ```
 
 Если окружения ещё нет, сначала: `py -m venv venv`.

@@ -1,0 +1,34 @@
+{% extends 'workspace/base.html' %}{% load workspace_ui %}{% block title %}Приёмка работ{% endblock %}{% block content %}<div class="page-title">
+<div>
+<span class="eyebrow">Контроль качества</span>
+<h1>Приёмка работ</h1>
+<p>Прораб передаёт этап после выполнения всех задач, заказчик принимает его или возвращает. Открытые замечания блокируют приёмку.</p>
+</div>
+</div>
+<div class="acceptance-list">{% for row in stage_rows %}{% with stage=row.stage %}<article class="card acceptance-card" id="stage-{{ stage.pk }}">
+<div class="card__head">
+<div>
+<span class="eyebrow">Этап {{ stage.position }} · {{ stage.start_date|date:'d.m' }} — {{ stage.end_date|date:'d.m.Y' }} · {{ stage.responsible.user|display_name }}</span>
+<h2>{{ stage.name }}</h2>
+</div>
+<span class="badge badge--{{ stage.status|status_tone }}"><span class="badge__dot"></span>{{ stage.get_status_display }}</span>
+</div>
+<div class="progress" role="progressbar" aria-valuenow="{{ row.percent }}" aria-valuemin="0" aria-valuemax="100" aria-label="Выполнение этапа"><span class="progress__fill{% if row.percent == 100 %} progress__fill--green{% endif %}" style="width: {{ row.percent }}%"></span></div>
+<ul class="checklist">
+<li class="{% if row.tasks_done == row.tasks_total %}ok{% else %}bad{% endif %}">Задачи выполнены: {{ row.tasks_done }} из {{ row.tasks_total }}</li>
+<li class="{% if row.remarks %}bad{% else %}ok{% endif %}">Нерешённых замечаний: {{ row.remarks|length }}</li>
+</ul>
+{% if row.remarks %}<div class="remark-chips">{% for remark in row.remarks %}<a href="{% url 'workspace:remarks' project.pk %}#remark-{{ remark.pk }}"><span class="badge badge--{{ remark.status|status_tone }}">{{ remark.get_status_display }}</span> {{ remark.description|truncatechars:60 }}</a>{% endfor %}</div>{% endif %}
+{% if row.photos %}<div class="photo-strip">{% for photo in row.photos %}<a href="{% url 'photo-file' photo.pk %}" target="_blank" rel="noopener"><img src="{% url 'photo-file' photo.pk %}" alt="Фотоотчёт этапа «{{ stage.name }}»" loading="lazy"></a>{% endfor %}</div>{% endif %}
+<div class="card-actions">
+{% if membership.role == 'foreman' and stage.status == 'in_progress' or membership.role == 'foreman' and stage.status == 'completed' %}{% if row.blockers %}<p class="muted-text">Передать нельзя: {{ row.blockers|join:'; ' }}.</p>{% else %}<form method="post" action="{% url 'workspace:stage-acceptance' project.pk stage.pk %}" data-once>{% csrf_token %}<input type="hidden" name="action" value="submit"><button class="button button--primary" type="submit">Передать на приёмку</button></form>{% endif %}{% endif %}
+{% if is_customer and stage.status == 'pending_acceptance' %}{% if row.blockers %}<p class="muted-text">Приёмка заблокирована: {{ row.blockers|join:'; ' }}.</p>{% else %}<form method="post" action="{% url 'workspace:stage-acceptance' project.pk stage.pk %}" data-once data-confirm="Принять этап «{{ stage.name }}»? Решение сохранится в истории.">{% csrf_token %}<input type="hidden" name="action" value="accept"><button class="button button--primary" type="submit">{% icon 'check' %} Принять этап</button></form>{% endif %}
+<details class="inline-details"><summary class="button button--secondary">Вернуть на доработку</summary>
+<form method="post" action="{% url 'workspace:stage-acceptance' project.pk stage.pk %}" data-once>{% csrf_token %}<input type="hidden" name="action" value="return"><div class="field"><label for="reason-{{ stage.pk }}">Причина возврата</label><textarea id="reason-{{ stage.pk }}" name="reason" rows="2" required></textarea></div><button class="button button--danger" type="submit">Вернуть</button></form>
+</details>
+<a class="button button--ghost" href="{% url 'workspace:remarks' project.pk %}?stage={{ stage.pk }}#new-remark">{% icon 'flag' %} Оставить замечание</a>{% endif %}
+{% if stage.status == 'planned' %}<p class="muted-text">Работы по этапу ещё не начаты.</p>{% endif %}
+{% if stage.status == 'accepted' %}<p class="success-text">Этап принят заказчиком.</p>{% endif %}
+</div>
+{% if row.decisions %}<div class="decisions"><span class="eyebrow">Решения</span>{% for decision in row.decisions %}<div class="mini-row"><span class="badge badge--{{ decision.action|decision_tone }}">{{ decision.get_action_display }}</span><small>{{ decision.actor|display_name }} · {{ decision.created_at|date:'d.m.Y H:i' }}</small>{% if decision.reason %}<small>«{{ decision.reason }}»</small>{% endif %}</div>{% endfor %}</div>{% endif %}
+</article>{% endwith %}{% empty %}<section class="card empty-state">{% icon 'check' %}<h2>Этапов пока нет</h2><p>Создайте этапы и задачи — здесь появится их приёмка.</p></section>{% endfor %}</div>{% endblock %}

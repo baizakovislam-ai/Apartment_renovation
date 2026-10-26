@@ -1,0 +1,25 @@
+{% extends 'workspace/base.html' %}{% load workspace_ui %}{% block title %}Задачи{% endblock %}{% block content %}<div class="page-title">
+<div>
+<span class="eyebrow">Исполнение и сроки</span>
+<h1>{% if is_manager %}Задачи{% else %}Мои задачи{% endif %}</h1>
+<p>{% if is_manager %}Все задачи проекта «{{ project.name }}» с исполнителями и сроками.{% else %}Задачи, назначенные вам в проекте «{{ project.name }}».{% endif %}</p>
+</div>{% if is_manager %}<a class="button button--primary" href="{% url 'workspace:task-create' project.pk %}">{% icon 'plus' %} Новая задача</a>{% endif %}</div>
+<form class="toolbar filter-form" method="get">
+<label class="search">{% icon 'search' %}<input name="q" value="{{ filters.q }}" placeholder="Поиск задачи" aria-label="Поиск задачи"></label>
+<select name="status" aria-label="Статус задачи"><option value="">Все статусы</option>{% for value, label in task_statuses %}<option value="{{ value }}" {% if filters.status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+<select name="stage" aria-label="Этап"><option value="">Все этапы</option>{% for stage in stage_options %}<option value="{{ stage.pk }}" {% if filters.stage == stage.pk|stringformat:'s' %}selected{% endif %}>{{ stage.name }}</option>{% endfor %}</select>
+<select name="deadline" aria-label="Срок"><option value="">Любой срок</option><option value="overdue" {% if filters.deadline == 'overdue' %}selected{% endif %}>Только просроченные</option></select>
+<button class="button button--secondary" type="submit">Применить</button>{% if has_filters %}<a href="{% url 'workspace:tasks' project.pk %}">Сбросить</a>{% endif %}<span class="muted-text">Найдено: {{ tasks|length }}</span>
+</form>
+<div class="task-list">{% for task in tasks %}<a class="card task-row{% if task.is_overdue %} task-row--overdue{% endif %}" href="{% url 'workspace:task' project.pk task.pk %}">
+<div class="task-row__main">
+<span class="eyebrow">{{ task.stage.name }}</span>
+<strong>{{ task.name }}</strong>
+{% if task.return_reason and task.status == 'in_progress' %}<small class="text-danger">Возвращена: {{ task.return_reason|truncatechars:80 }}</small>{% endif %}
+</div>
+<span class="person"><span class="avatar avatar--teal">{{ task.assignee.user|initials }}</span>{{ task.assignee.user|display_name }}</span>
+<span class="deadline-cell"><small>Срок</small><strong class="{% if task.is_overdue %}overdue{% endif %}">{{ task.due_date|date:'d.m.Y' }}</strong>{% if task.is_overdue %}<em class="badge badge--red">Просрочена</em>{% elif task.is_due_soon %}<em class="badge badge--orange">Скоро срок</em>{% endif %}</span>
+<span class="badge badge--{{ task.status|status_tone }}"><span class="badge__dot"></span>{{ task.get_status_display }}</span>
+</a>{% empty %}<section class="card empty-state">{% icon 'tasks' %}<h2>Задачи не найдены</h2>
+<p>{% if has_filters %}Измените условия поиска.{% elif is_manager %}Создайте задачу, выберите этап, исполнителя и срок.{% else %}Когда прораб назначит вам задачу, она появится здесь.{% endif %}</p>
+{% if is_manager and not has_filters %}<a class="button button--primary" href="{% url 'workspace:task-create' project.pk %}">{% icon 'plus' %} Новая задача</a>{% endif %}</section>{% endfor %}</div>{% endblock %}

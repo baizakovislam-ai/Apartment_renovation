@@ -143,3 +143,80 @@ class WorkspaceTests(TestCase):
         response = self.client.get(reverse("workspace:projects"))
         self.assertNotContains(response, self.project.name)
         self.assertContains(response, "&lt;script&gt;")
+
+
+@override_settings(PASSWORD_HASHERS=["django.contrib.auth.hashers.MD5PasswordHasher"])
+class Milestone40PagesTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        from datetime import timedelta
+        from django.utils import timezone
+        from apps.repairs.services import update_stage
+        from apps.repairs.task_services import create_task
+        User = get_user_model()
+        cls.owner = User.objects.create_user(email="owner40@example.com", full_name="Заказчик", is_email_verified=True)
+        cls.foreman = User.objects.create_user(email="foreman40@example.com", full_name="Прораб", is_email_verified=True)
+        cls.worker = User.objects.create_user(email="worker40@example.com", full_name="Исполнитель", is_email_verified=True)
+        cls.project = create_project(user=cls.owner, name="Квартира", address="ул. Киевская, 1")
+        cls.foreman_member = ProjectMember.objects.create(project=cls.project, user=cls.foreman, role="foreman")
+        cls.worker_member = ProjectMember.objects.create(project=cls.project, user=cls.worker, role="executor")
+        cls.today = timezone.localdate()
+        cls.stage = create_stage(project=cls.project, actor=cls.owner, name="Электрика", start_date=cls.today, end_date=cls.today + timedelta(days=5), responsible=cls.foreman_member)
+        update_stage(stage=cls.stage, actor=cls.owner, status="in_progress")
+        cls.task = create_task(project=cls.project, actor=cls.foreman, stage=cls.stage, name="Розетки", assignee=cls.worker_member, due_date=cls.today)
+
+    def test_pages_render_for_every_role(self):
+        pages = [("project", [self.project.pk]), ("tasks", [self.project.pk]), ("task", [self.project.pk, self.task.pk]),
+                 ("remarks", [self.project.pk]), ("dashboard", []), ("stages", [self.project.pk])]
+        for user in [self.owner, self.foreman, self.worker]:
+            self.client.force_login(user)
+            for name, args in pages:
+                with self.subTest(user=user.email, page=name):
+                    self.assertEqual(self.client.get(reverse("workspace:" + name, args=args)).status_code, 200)
+        for user, expected in [(self.owner, 200), (self.foreman, 200), (self.worker, 403)]:
+            self.client.force_login(user)
+            self.assertEqual(self.client.get(reverse("workspace:acceptance", args=[self.project.pk])).status_code, expected)
+
+    def test_executor_does_not_see_budget(self):
+        self.project.budget = 500000
+        self.project.save()
+        self.client.force_login(self.owner)
+        self.assertContains(self.client.get(reverse("workspace:project", args=[self.project.pk])), "500 000,00 сом")
+        self.client.force_login(self.worker)
+        self.assertNotContains(self.client.get(reverse("workspace:project", args=[self.project.pk])), "500 000")
+
+    def test_project_create_edit_and_delete_draft(self):
+        self.client.force_login(self.owner)
+        self.client.post(reverse("workspace:project-create"), {"name": "Черновик", "address": "Ахунбаева 5", "area": "54.5", "budget": "300000",
+                                                             "start_date": "2026-11-01", "end_date": "2026-10-01"})
+        self.assertFalse(Project.objects.filter(name="Черновик").exists())  # dates in wrong order
+        self.client.post(reverse("workspace:project-create"), {"name": "Черновик", "area": "54.5"})
+        draft = Project.objects.get(name="Черновик")
+        response = self.client.post(reverse("workspace:project-edit", args=[draft.pk]), {"name": "Черновик 2", "address": "Ахунбаева 5"})
+        self.assertRedirects(response, reverse("workspace:project", args=[draft.pk]))
+        draft.refresh_from_db()
+        self.assertEqual((draft.name, draft.address), ("Черновик 2", "Ахунбаева 5"))
+        self.client.force_login(self.worker)
+        self.assertEqual(self.client.get(reverse("workspace:project-edit", args=[self.project.pk])).status_code, 403)
+        self.client.force_login(self.owner)
+        self.client.post(reverse("workspace:project-delete", args=[self.project.pk]))
+        self.assertTrue(Project.objects.filter(pk=self.project.pk).exists())  # has stages
+        self.client.post(reverse("workspace:project-delete", args=[draft.pk]))
+        self.assertFalse(Project.objects.filter(pk=draft.pk).exists())
+
+    def test_task_form_and_executor_flow_through_pages(self):
+        from apps.repairs.models import Task
+        self.client.force_login(self.foreman)
+        form = self.client.get(reverse("workspace:task-create", args=[self.project.pk])).context["form"]
+        payload = {"stage": self.stage.pk, "name": "Свет", "assignee": self.worker_member.pk, "due_date": self.today.isoformat(), "request_id": form.initial["request_id"]}
+        self.client.post(reverse("workspace:task-create", args=[self.project.pk]), payload)
+        self.client.post(reverse("workspace:task-create", args=[self.project.pk]), payload)  # double click
+        self.assertEqual(Task.objects.filter(name="Свет").count(), 1)
+        self.client.force_login(self.worker)
+        url = reverse("workspace:task-action", args=[self.project.pk, self.task.pk])
+        self.client.post(url, {"action": "start", "version": 1})
+        self.client.post(url, {"action": "submit", "version": 2, "text": "Установлены"})
+        self.task.refresh_from_db()
+        self.assertEqual(self.task.status, "review")
+        response = self.client.post(url, {"action": "approve", "version": 3}, follow=True)
+        self.assertContains(response, "Проверку выполняют заказчик или прораб")

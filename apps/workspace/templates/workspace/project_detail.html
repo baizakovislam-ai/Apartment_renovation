@@ -1,0 +1,46 @@
+{% extends 'workspace/base.html' %}{% load workspace_ui %}{% block title %}{{ project.name }}{% endblock %}{% block content %}<div class="page-title">
+<div>
+<span class="eyebrow">Проект № {{ project.pk }} · {{ project.get_status_display }}</span>
+<h1>{{ project.name }}</h1>
+<p>{{ project.address|default:'Адрес не указан' }}</p>
+</div>{% if is_customer and project.status != 'completed' %}<a class="button button--primary" href="{% url 'workspace:project-edit' project.pk %}">{% icon 'edit' %} Редактировать</a>{% endif %}</div>
+{% include 'workspace/_progress.html' %}
+<div class="detail-layout">
+<section class="card">
+<div class="card__head">
+<div>
+<span class="eyebrow">Паспорт объекта</span>
+<h2>Данные проекта</h2>
+</div>
+<span class="badge badge--{{ project.status|status_tone }}">{{ project.get_status_display }}</span>
+</div>
+<dl class="facts">
+<div><dt>Адрес</dt><dd>{{ project.address|default:'—' }}</dd></div>
+<div><dt>Площадь</dt><dd>{% if project.area %}{{ project.area }} м²{% else %}—{% endif %}</dd></div>
+<div><dt>Сроки ремонта</dt><dd>{% if project.start_date or project.end_date %}{{ project.start_date|date:'d.m.Y'|default:'…' }} — {{ project.end_date|date:'d.m.Y'|default:'…' }}{% else %}—{% endif %}</dd></div>
+{% if is_manager %}<div><dt>Лимит бюджета</dt><dd>{{ project.budget|money }}</dd></div>{% endif %}
+<div><dt>Создан</dt><dd>{{ project.created_at|date:'d E Y' }} · {{ project.created_by|display_name }}</dd></div>
+<div><dt>Команда</dt><dd>{{ project.member_count }} участн.</dd></div>
+</dl>
+{% if project.description %}<h3 class="subhead">Описание</h3><p class="prose">{{ project.description|linebreaksbr }}</p>{% endif %}
+</section>
+<section class="card">
+<div class="card__head">
+<div>
+<span class="eyebrow">Прогресс по этапам</span>
+<h2>Этапы</h2>
+</div>
+<a class="button button--ghost" href="{% url 'workspace:stages' project.pk %}">Все этапы {% icon 'arrow' %}</a>
+</div>{% for stage, percent in progress.stages %}<div class="stage-progress">
+<div><strong>{{ stage.name }}</strong><span class="badge badge--{{ stage.status|status_tone }}">{{ stage.get_status_display }}</span></div>
+<div class="progress" role="progressbar" aria-valuenow="{{ percent }}" aria-valuemin="0" aria-valuemax="100" aria-label="Выполнение этапа {{ stage.name }}"><span class="progress__fill{% if percent == 100 %} progress__fill--green{% endif %}" style="width: {{ percent }}%"></span></div>
+<small>{{ percent }}% · задач выполнено {{ stage.task_done }} из {{ stage.task_total }}</small>
+</div>{% empty %}<div class="empty-state compact"><h3>Этапов пока нет</h3><p>Добавьте этапы, чтобы видеть прогресс.</p></div>{% endfor %}</section>
+</div>
+{% if is_customer and project.status == 'planning' and project.created_by_id == user.pk and not project.stage_count and not project.task_count %}<section class="card danger-zone">
+<div>
+<h2>Удалить черновик проекта</h2>
+<p class="muted-text">Доступно, пока в проекте нет этапов и задач. Действие необратимо.</p>
+</div>
+<form method="post" action="{% url 'workspace:project-delete' project.pk %}" data-confirm="Удалить проект «{{ project.name }}» без возможности восстановления?">{% csrf_token %}<button class="button button--danger" type="submit">Удалить черновик</button></form>
+</section>{% endif %}{% endblock %}

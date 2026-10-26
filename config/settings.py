@@ -14,6 +14,7 @@ import os
 from pathlib import Path
 
 from dotenv import load_dotenv
+from .database import database_settings
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -97,12 +98,7 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.1/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
-}
+DATABASES = database_settings(BASE_DIR)
 
 
 # Password validation
@@ -141,21 +137,29 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 
+# Uploaded files. Photos live in media/private and are served only through an
+# access-checked view; never publish this directory from the web server.
+MEDIA_ROOT = BASE_DIR / "media"
+PRIVATE_MEDIA_ROOT = MEDIA_ROOT / "private"
+PHOTO_MAX_FILES = 8
+PHOTO_MAX_BYTES = 8 * 1024 * 1024
+PHOTO_MAX_PIXELS = 25_000_000
+
 
 # Email
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
 EMAIL_BACKEND = os.getenv(
-    "EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend"
+    "EMAIL_BACKEND", "django.core.mail.backends.smtp.EmailBackend"
 )
-EMAIL_HOST = os.getenv("EMAIL_HOST", "localhost")
-EMAIL_PORT = int(os.getenv("EMAIL_PORT", "25"))
-EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "False").lower() in {"true", "1", "yes"}
+EMAIL_HOST = os.getenv("EMAIL_HOST", "smtp.gmail.com")
+EMAIL_PORT = int(os.getenv("EMAIL_PORT", "587"))
+EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "True").lower() in {"true", "1", "yes"}
 EMAIL_USE_SSL = os.getenv("EMAIL_USE_SSL", "False").lower() in {"true", "1", "yes"}
 EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
-EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "").replace(" ", "")
 EMAIL_TIMEOUT = int(os.getenv("EMAIL_TIMEOUT", "10"))
 DEFAULT_FROM_EMAIL = os.getenv(
-    "DEFAULT_FROM_EMAIL", "Контроль ремонта <no-reply@example.com>"
+    "DEFAULT_FROM_EMAIL", f"Контроль ремонта <{EMAIL_HOST_USER or 'no-reply@example.com'}>"
 )
 
 AUTH_USER_MODEL = "accounts.User"

@@ -28,3 +28,17 @@ document.querySelectorAll("[data-copy]").forEach(button => button.addEventListen
   try { await navigator.clipboard.writeText(input.value); button.textContent = "Скопировано"; }
   catch { input.focus(); input.select(); button.textContent = "Нажмите Ctrl+C"; }
 }));
+// Блокируем повторную отправку формы (ТЗ 4.13): вторая отправка игнорируется.
+document.querySelectorAll("form[data-once]").forEach(form => form.addEventListener("submit", event => {
+  if (event.defaultPrevented) return;
+  if (form.dataset.sent) { event.preventDefault(); return; }
+  form.dataset.sent = "1";
+  const submitter = event.submitter;
+  if (submitter?.name) {
+    // A disabled button is not sent, so keep its value in a hidden field.
+    const hidden = document.createElement("input");
+    hidden.type = "hidden"; hidden.name = submitter.name; hidden.value = submitter.value;
+    form.appendChild(hidden);
+  }
+  setTimeout(() => form.querySelectorAll("button[type=submit]").forEach(button => button.disabled = true), 0);
+}));

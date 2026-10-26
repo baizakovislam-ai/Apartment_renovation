@@ -23,7 +23,7 @@
 </span>
 </a>
 <button class="icon-button sidebar__close" data-menu-close aria-label="Закрыть меню">{% icon 'close' %}</button>
-<a class="project-switch" href="{% url 'workspace:projects' %}">
+<a class="project-switch" href="{% if project %}{% url 'workspace:project' project.pk %}{% else %}{% url 'workspace:projects' %}{% endif %}">
 <span class="project-switch__icon">{% if project %}{{ project.name|first }}{% else %}Р{% endif %}</span>
 <span>
 <small>Текущий проект</small>
@@ -35,7 +35,14 @@
 </a>
 <a class="nav__item {% if page == 'projects' %}nav__item--active{% endif %}" href="{% url 'workspace:projects' %}">{% icon 'projects' %}<span>Мои проекты</span>
 </a>
-{% if project %}<a class="nav__item {% if page == 'stages' %}nav__item--active{% endif %}" href="{% url 'workspace:stages' project.pk %}">{% icon 'stages' %}<span>Этапы ремонта</span>
+{% if project %}<span class="nav__label">Проект</span>
+<a class="nav__item {% if page == 'project' %}nav__item--active{% endif %}" href="{% url 'workspace:project' project.pk %}">{% icon 'info' %}<span>О проекте</span>
+</a>
+<a class="nav__item {% if page == 'stages' %}nav__item--active{% endif %}" href="{% url 'workspace:stages' project.pk %}">{% icon 'stages' %}<span>Этапы ремонта</span>
+</a>
+<a class="nav__item {% if page == 'tasks' %}nav__item--active{% endif %}" href="{% url 'workspace:tasks' project.pk %}">{% icon 'tasks' %}<span>{% if is_manager %}Задачи{% else %}Мои задачи{% endif %}</span>
+</a>{% if is_manager %}<a class="nav__item {% if page == 'acceptance' %}nav__item--active{% endif %}" href="{% url 'workspace:acceptance' project.pk %}">{% icon 'check' %}<span>Приёмка работ</span>
+</a>{% endif %}<a class="nav__item {% if page == 'remarks' %}nav__item--active{% endif %}" href="{% url 'workspace:remarks' project.pk %}">{% icon 'flag' %}<span>Замечания</span>
 </a>
 <a class="nav__item {% if page == 'members' %}nav__item--active{% endif %}" href="{% url 'workspace:members' project.pk %}">{% icon 'users' %}<span>Участники проекта</span>
 </a>{% if is_manager %}<a class="nav__item {% if page == 'history' %}nav__item--active{% endif %}" href="{% url 'workspace:history' project.pk %}">{% icon 'history' %}<span>История изменений</span>
@@ -68,7 +75,7 @@
 <span class="avatar">{{ user|initials }}</span>
 </div>
 </header>
-<main id="content">{% if messages %}<div class="messages" aria-live="polite">{% for message in messages %}<div class="notice notice--{{ message.tags }}">{{ message }}</div>{% endfor %}</div>{% endif %}{% block content %}{% endblock %}<footer class="workspace-footer">Контроль ремонта квартиры <span>Команда · Этапы · Сроки</span>
+<main id="content">{% if messages %}<div class="messages" aria-live="polite">{% for message in messages %}<div class="notice notice--{{ message.tags }}">{{ message }}</div>{% endfor %}</div>{% endif %}{% block content %}{% endblock %}<footer class="workspace-footer">Контроль ремонта квартиры <span>Команда · Этапы · Задачи · Приёмка</span>
 </footer>
 </main>
 </div>

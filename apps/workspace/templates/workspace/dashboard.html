@@ -12,12 +12,13 @@
 <select id="current-project" name="project">{% for item in projects %}<option value="{{ item.pk }}" {% if item.pk == project.pk %}selected{% endif %}>{{ item.name }}</option>{% endfor %}</select>
 <button class="button button--secondary" type="submit">Открыть</button>
 </form>
+{% include 'workspace/_progress.html' %}
 <div class="metrics">
 <div class="metric">
-<div class="metric__icon metric__icon--blue">{% icon 'projects' %}</div>
-<span>Мои проекты</span>
-<strong>{{ projects|length }}</strong>
-<small>Доступны вашему аккаунту</small>
+<div class="metric__icon metric__icon--blue">{% icon 'tasks' %}</div>
+<span>{% if is_manager %}Открытые задачи{% else %}Мои открытые задачи{% endif %}</span>
+<strong>{% if is_manager %}{{ open_task_count }}{% else %}{{ my_open_tasks }}{% endif %}</strong>
+<small>{% if is_manager %}Ещё не подтверждены{% else %}Назначены вам{% endif %}</small>
 </div>
 <div class="metric">
 <div class="metric__icon metric__icon--teal">{% icon 'users' %}</div>
@@ -27,14 +28,14 @@
 </div>
 <div class="metric">
 <div class="metric__icon metric__icon--green">{% icon 'check' %}</div>
-<span>Работы выполнены</span>
-<strong>{{ completed_stages }} из {{ total_stages }}</strong>
-<small>Этапы с завершёнными работами</small>
+<span>На проверке</span>
+<strong>{{ progress.tasks_review }}</strong>
+<small>Задачи ждут подтверждения</small>
 </div>
 <div class="metric">
 <div class="metric__icon metric__icon--orange">{% icon 'alert' %}</div>
-<span>Просроченные этапы</span>
-<strong>{{ overdue }}</strong>
+<span>Просроченные задачи</span>
+<strong>{{ progress.tasks_overdue }}</strong>
 <small>Требуют внимания к срокам</small>
 </div>
 </div>
@@ -58,25 +59,25 @@
 <section class="card approvals">
 <div class="card__head">
 <div>
-<span class="eyebrow">Планирование</span>
-<h2>Ближайшие сроки</h2>
-</div>{% icon 'history' %}</div>{% for stage in upcoming %}<div class="deadline-row">
-<span class="history-dot history-dot--blue">{% icon 'history' %}</span>
+<span class="eyebrow">Контроль сроков</span>
+<h2>Ближайшие задачи</h2>
+</div>{% icon 'history' %}</div>{% for task in upcoming %}<a class="deadline-row" href="{% url 'workspace:task' project.pk task.pk %}">
+<span class="history-dot history-dot--blue">{% icon 'tasks' %}</span>
 <div>
-<strong>{{ stage.name }}</strong>
-<small>{{ stage.responsible.user|display_name }}</small>
+<strong>{{ task.name }}</strong>
+<small>{{ task.assignee.user|display_name }} · {{ task.get_status_display }}</small>
 </div>
-<span class="deadline {% if stage.end_date < today %}overdue{% endif %}">{{ stage.end_date|date:'d.m.Y' }}</span>
-</div>{% empty %}<div class="empty-state compact">
-<h3>Нет открытых сроков</h3>
-<p>Здесь появятся даты незавершённых этапов.</p>
+<span class="deadline {% if task.is_overdue %}overdue{% endif %}">{{ task.due_date|date:'d.m.Y' }}</span>
+</a>{% empty %}<div class="empty-state compact">
+<h3>Нет открытых задач</h3>
+<p>Здесь появятся сроки незавершённых задач.</p>
 </div>{% endfor %}</section>
 </div>
 <section class="card team-banner">
 <div>
 <span class="eyebrow">Работайте вместе</span>
 <h2>У каждого участника — своя роль</h2>
-<p>Заказчик управляет составом команды, прораб планирует работы, исполнители видят этапы.</p>
+<p>Заказчик управляет командой и принимает работы, прораб планирует задачи, исполнители публикуют фотоотчёты.</p>
 </div>
 <a class="button button--secondary" href="{% url 'workspace:members' project.pk %}">{% icon 'users' %} Открыть команду</a>
 </section>

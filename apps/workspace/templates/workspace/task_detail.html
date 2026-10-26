@@ -1,0 +1,61 @@
+{% extends 'workspace/base.html' %}{% load workspace_ui %}{% block title %}{{ task.name }}{% endblock %}{% block content %}<a class="back-link" href="{% url 'workspace:tasks' project.pk %}">← К списку задач</a>
+<div class="page-title">
+<div>
+<span class="eyebrow">{{ task.stage.name }} · Задача № {{ task.pk }}</span>
+<h1>{{ task.name }}</h1>
+<p><span class="badge badge--{{ task.status|status_tone }}"><span class="badge__dot"></span>{{ task.get_status_display }}</span>{% if task.is_overdue %} <span class="badge badge--red">Просрочена</span>{% elif task.is_due_soon %} <span class="badge badge--orange">Скоро срок</span>{% endif %}</p>
+</div>{% if is_manager and task.status != 'done' %}<a class="button button--secondary" href="{% url 'workspace:task-edit' project.pk task.pk %}">{% icon 'edit' %} Редактировать</a>{% endif %}</div>
+<div class="detail-layout">
+<div class="stack">
+<section class="card">
+<dl class="facts">
+<div><dt>Исполнитель</dt><dd><span class="person"><span class="avatar avatar--teal">{{ task.assignee.user|initials }}</span>{{ task.assignee.user|display_name }}</span></dd></div>
+<div><dt>Срок выполнения</dt><dd class="{% if task.is_overdue %}overdue{% endif %}">{{ task.due_date|date:'d E Y' }}</dd></div>
+<div><dt>Сроки этапа</dt><dd>{{ task.stage.start_date|date:'d.m.Y' }} — {{ task.stage.end_date|date:'d.m.Y' }} · {{ task.stage.get_status_display }}</dd></div>
+<div><dt>Создал</dt><dd>{{ task.created_by|display_name }}, {{ task.created_at|date:'d.m.Y H:i' }}</dd></div>
+{% if task.completed_at %}<div><dt>Подтверждена</dt><dd>{{ task.approved_by|display_name }}, {{ task.completed_at|date:'d.m.Y H:i' }}</dd></div>{% endif %}
+</dl>
+{% if task.description %}<h3 class="subhead">Что нужно сделать</h3><p class="prose">{{ task.description|linebreaksbr }}</p>{% endif %}
+{% if task.result %}<h3 class="subhead">Результат исполнителя</h3><p class="prose result-box">{{ task.result|linebreaksbr }}</p>{% endif %}
+{% if task.return_reason and task.status == 'in_progress' %}<div class="notice notice--error"><strong>Возвращена на доработку:</strong> {{ task.return_reason }}</div>{% endif %}
+</section>
+
+<section class="card" id="reports">
+<div class="card__head"><div><span class="eyebrow">Фиксация результата</span><h2>Фотоотчёты</h2></div><span class="counter">{{ reports|length }}</span></div>
+{% for report in reports %}<article class="photo-report">
+<div class="photo-report__head"><span class="avatar">{{ report.author|initials }}</span><div><strong>{{ report.author|display_name }}</strong><small>{{ report.created_at|date:'d E Y, H:i' }}</small></div></div>
+<p class="prose">{{ report.description|linebreaksbr }}</p>
+<div class="photo-grid">{% for photo in report.photos.all %}<a href="{% url 'photo-file' photo.pk %}" target="_blank" rel="noopener"><img src="{% url 'photo-file' photo.pk %}" alt="Фото к задаче «{{ task.name }}»" loading="lazy" width="{{ photo.width }}" height="{{ photo.height }}"></a>{% endfor %}</div>
+</article>{% empty %}<p class="muted-text">Фотоотчётов пока нет.</p>{% endfor %}
+{% if task.stage.status != 'cancelled' %}<form class="report-form" method="post" action="{% url 'workspace:photo-report-create' project.pk task.pk %}" enctype="multipart/form-data" data-once>{% csrf_token %}
+<input type="hidden" name="request_id" value="{{ report_request_id }}">
+<h3 class="subhead">Добавить фотоотчёт</h3>
+<div class="field"><label for="report-description">Описание</label><textarea id="report-description" name="description" rows="3" required placeholder="Что сделано, что видно на фото"></textarea></div>
+<div class="field"><label for="report-images">Фотографии</label><input id="report-images" type="file" name="images" accept="image/jpeg,image/png,image/webp" multiple required><div class="help">JPEG, PNG или WebP, до 8 файлов по 8 МБ. Метаданные (геолокация) удаляются автоматически.</div></div>
+<button class="button button--secondary" type="submit">{% icon 'camera' %} Опубликовать</button>
+</form>{% endif %}
+</section>
+</div>
+
+<aside class="stack">
+<section class="card decision-card">
+<span class="eyebrow">Действия</span>
+{% if is_assignee and task.status == 'todo' %}{% if task.stage.status == 'in_progress' or task.stage.status == 'completed' %}<form method="post" action="{% url 'workspace:task-action' project.pk task.pk %}" data-once>{% csrf_token %}<input type="hidden" name="version" value="{{ task.version }}"><input type="hidden" name="action" value="start"><button class="button button--primary" type="submit">Начать выполнение</button></form>{% else %}<p class="muted-text">Этап ещё не запущен — начать выполнение можно после старта работ по этапу.</p>{% endif %}{% endif %}
+{% if is_assignee and task.status == 'in_progress' %}<form method="post" action="{% url 'workspace:task-action' project.pk task.pk %}" data-once>{% csrf_token %}<input type="hidden" name="version" value="{{ task.version }}"><input type="hidden" name="action" value="submit">
+<div class="field"><label for="result">Результат работы</label><textarea id="result" name="text" rows="4" placeholder="Опишите, что сделано">{{ task.result }}</textarea><div class="help">Нужен текст результата или хотя бы один фотоотчёт.</div></div>
+<button class="button button--primary" type="submit">Передать на проверку</button></form>{% endif %}
+{% if is_manager and task.status == 'review' %}<form method="post" action="{% url 'workspace:task-action' project.pk task.pk %}" data-once>{% csrf_token %}<input type="hidden" name="version" value="{{ task.version }}"><input type="hidden" name="action" value="approve"><button class="button button--primary" type="submit">{% icon 'check' %} Подтвердить выполнение</button></form>
+<form method="post" action="{% url 'workspace:task-action' project.pk task.pk %}" data-once>{% csrf_token %}<input type="hidden" name="version" value="{{ task.version }}"><input type="hidden" name="action" value="return">
+<div class="field"><label for="return-reason">Что доработать</label><textarea id="return-reason" name="text" rows="3" required></textarea></div>
+<button class="button button--danger" type="submit">Вернуть на доработку</button></form>{% endif %}
+{% if task.status == 'done' %}<p class="success-text">Задача выполнена и подтверждена.</p>{% endif %}
+{% if is_manager and task.status == 'todo' and task.created_by_id == user.pk and not reports %}<form method="post" action="{% url 'workspace:task-delete' project.pk task.pk %}" data-confirm="Удалить задачу «{{ task.name }}»?">{% csrf_token %}<input type="hidden" name="version" value="{{ task.version }}"><button class="button button--ghost" type="submit">Удалить задачу</button></form>{% endif %}
+{% if not is_assignee and not is_manager %}<p class="muted-text">Нет доступных действий.</p>{% endif %}
+</section>
+{% if remarks %}<section class="card"><span class="eyebrow">Замечания к задаче</span>{% for remark in remarks %}<a class="mini-row" href="{% url 'workspace:remarks' project.pk %}#remark-{{ remark.pk }}"><span class="badge badge--{{ remark.status|status_tone }}">{{ remark.get_status_display }}</span>{{ remark.description|truncatechars:70 }}</a>{% endfor %}</section>{% endif %}
+<section class="card">
+<span class="eyebrow">История задачи</span>
+{% for event in events %}<div class="mini-row"><strong>{{ event.action|event_label }}</strong><small>{{ event.actor|display_name }} · {{ event.created_at|date:'d.m.Y H:i' }}</small>{% if event.data.text %}<small>«{{ event.data.text|truncatechars:90 }}»</small>{% endif %}</div>{% empty %}<p class="muted-text">Событий нет.</p>{% endfor %}
+</section>
+</aside>
+</div>{% endblock %}

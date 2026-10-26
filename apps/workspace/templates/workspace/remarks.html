@@ -1,0 +1,49 @@
+{% extends 'workspace/base.html' %}{% load workspace_ui %}{% block title %}Замечания{% endblock %}{% block content %}<div class="page-title">
+<div>
+<span class="eyebrow">Контроль качества</span>
+<h1>Замечания</h1>
+<p>{% if is_customer %}Фиксируйте дефекты, назначайте ответственного и срок. Закрывает замечание только заказчик.{% elif is_manager %}Замечания заказчика по проекту «{{ project.name }}».{% else %}Замечания, за устранение которых отвечаете вы.{% endif %}</p>
+</div>{% if form %}<a class="button button--primary" href="#new-remark">{% icon 'plus' %} Новое замечание</a>{% endif %}</div>
+<form class="toolbar filter-form" method="get">
+<label class="search">{% icon 'search' %}<input name="q" value="{{ filters.q }}" placeholder="Поиск по описанию" aria-label="Поиск по описанию"></label>
+<select name="status" aria-label="Статус замечания"><option value="">Все статусы</option>{% for value, label in remark_statuses %}<option value="{{ value }}" {% if filters.status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+<select name="stage" aria-label="Этап"><option value="">Все этапы</option>{% for stage in stage_options %}<option value="{{ stage.pk }}" {% if filters.stage == stage.pk|stringformat:'s' %}selected{% endif %}>{{ stage.name }}</option>{% endfor %}</select>
+<button class="button button--secondary" type="submit">Применить</button>{% if has_filters %}<a href="{% url 'workspace:remarks' project.pk %}">Сбросить</a>{% endif %}
+</form>
+<div class="remark-list">{% for remark in remarks %}<article class="card remark-card remark-card--{{ remark.status }}" id="remark-{{ remark.pk }}">
+<div class="card__head">
+<div>
+<span class="eyebrow">{{ remark.stage.name }}{% if remark.task %} · {{ remark.task.name }}{% endif %} · № {{ remark.pk }}</span>
+<h2>{{ remark.description|linebreaksbr }}</h2>
+</div>
+<span class="badge badge--{{ remark.status|status_tone }}"><span class="badge__dot"></span>{{ remark.get_status_display }}</span>
+</div>
+<div class="remark-meta">
+<span><small>Ответственный</small><span class="person"><span class="avatar avatar--teal">{{ remark.responsible.user|initials }}</span>{{ remark.responsible.user|display_name }}</span></span>
+<span><small>Срок устранения</small><strong class="{% if remark.is_overdue %}overdue{% endif %}">{{ remark.due_date|date:'d.m.Y' }}{% if remark.is_overdue %} · просрочено{% endif %}</strong></span>
+<span><small>Создал</small><strong>{{ remark.created_by|display_name }}, {{ remark.created_at|date:'d.m.Y' }}</strong></span>
+{% if remark.closed_at %}<span><small>Закрыто</small><strong>{{ remark.closed_by|display_name }}, {{ remark.closed_at|date:'d.m.Y H:i' }}</strong></span>{% endif %}
+</div>
+{% if remark.comments.all %}<div class="thread">{% for comment in remark.comments.all %}<div class="thread__item"><span class="avatar">{{ comment.author|initials }}</span><div><strong>{{ comment.author|display_name }}</strong> <small>{{ comment.created_at|date:'d.m.Y H:i' }}{% if comment.action == 'fix' %} · сообщил об устранении{% elif comment.action == 'reopen' %} · вернул на доработку{% elif comment.action == 'close' %} · закрыл{% endif %}</small><p>{{ comment.text|linebreaksbr }}</p></div></div>{% endfor %}</div>{% endif %}
+{% if remark.status != 'closed' %}<div class="remark-actions">
+<form method="post" action="{% url 'workspace:remark-action' project.pk remark.pk %}" class="reply-form" data-once>{% csrf_token %}<input type="hidden" name="version" value="{{ remark.version }}">
+<label class="sr-only" for="text-{{ remark.pk }}">Комментарий</label><textarea id="text-{{ remark.pk }}" name="text" rows="2" placeholder="Ответ или комментарий"></textarea>
+<div class="card-actions">
+<button class="button button--secondary" name="action" value="reply" type="submit">Ответить</button>
+{% if remark.status == 'open' %}{% if remark.responsible.user_id == user.pk or membership.role == 'foreman' %}<button class="button button--primary" name="action" value="fix" type="submit">Устранено</button>{% endif %}{% endif %}
+{% if is_customer and remark.status == 'fixed' %}<button class="button button--primary" name="action" value="close" type="submit">{% icon 'check' %} Подтвердить и закрыть</button><button class="button button--danger" name="action" value="reopen" type="submit">Не устранено</button>{% endif %}
+{% if is_customer and remark.status == 'open' %}<button class="button button--ghost" name="action" value="close" type="submit">Закрыть без проверки</button>{% endif %}
+</div>
+</form>
+</div>{% endif %}
+</article>{% empty %}<section class="card empty-state">{% icon 'flag' %}<h2>Замечаний нет</h2><p>{% if has_filters %}Измените условия поиска.{% else %}Здесь появятся замечания заказчика по качеству работ.{% endif %}</p></section>{% endfor %}</div>
+{% if form %}<section class="card invite-card" id="new-remark">
+<div>
+<span class="eyebrow">Новый дефект</span>
+<h2>Создать замечание</h2>
+<p class="muted-text">Замечание к этапу на приёмке автоматически вернёт этап в работу.</p>
+</div>
+<form method="post" novalidate data-once>{% csrf_token %}{% if form.non_field_errors %}<div class="notice notice--error" role="alert">{{ form.non_field_errors }}</div>{% endif %}{% for hidden in form.hidden_fields %}{{ hidden }}{% endfor %}{% for field in form.visible_fields %}{% include 'accounts/_field.html' %}{% endfor %}
+<button class="button button--primary" type="submit">{% icon 'flag' %} Создать замечание</button>
+</form>
+</section>{% endif %}{% endblock %}

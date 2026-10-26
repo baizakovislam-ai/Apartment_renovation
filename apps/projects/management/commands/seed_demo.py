@@ -9,6 +9,7 @@ from django.utils import timezone
 from apps.projects.models import Project
 from apps.projects.services import accept_invitation, create_project, invite_member
 from apps.repairs.services import create_stage
+from .seed_milestone40 import fill_demo
 
 
 class Command(BaseCommand):
@@ -38,6 +39,7 @@ class Command(BaseCommand):
             accept_invitation(token=invitation.token, user=user)
         today = timezone.localdate()
         create_stage(project=project, actor=customer, name="Подготовительные работы", description="Демонстрационный этап", start_date=today, end_date=today + timedelta(days=7), responsible=project.members.get(user=foreman))
+        fill_demo(project, customer, foreman)
         self.stdout.write(self.style.SUCCESS(f"Demo project ID: {project.pk}"))
         self.stdout.write("Accounts: customer@example.com, foreman@example.com, executor@example.com")
         self.stdout.write("Sign in at /accounts/login/ using the password you supplied.")

@@ -39,6 +39,7 @@ class RegisterView(FormView):
 
     def form_valid(self, form):
         user = form.save()
+        self.request.session["pending_verification_email"] = user.email
         try:
             send_verification_email(user)
         except (smtplib.SMTPException, OSError):
@@ -52,13 +53,16 @@ class RegisterView(FormView):
 
 
 def check_email(request):
-    return render(request, "accounts/check_email.html")
+    return VerifyEmailView.as_view(template_name="accounts/check_email.html")(request)
 
 
 class VerifyEmailView(FormView):
     template_name = "accounts/verify_email.html"
     form_class = VerifyEmailForm
     success_url = reverse_lazy("accounts:login")
+
+    def get_initial(self):
+        return {**super().get_initial(), "email": self.request.session.get("pending_verification_email", "")}
 
     def form_valid(self, form):
         user = User.objects.filter(
@@ -69,6 +73,7 @@ class VerifyEmailView(FormView):
         if not user or not verify_email_code(user, form.cleaned_data["code"]):
             form.add_error("code", "Код недействителен или истёк. Запросите новый код.")
             return self.form_invalid(form)
+        self.request.session.pop("pending_verification_email", None)
         return render(self.request, "accounts/verify_result.html", {"ok": True})
 
 
@@ -79,13 +84,19 @@ class ResendVerificationView(FormView):
 
     def form_valid(self, form):
         # Ответ одинаковый для любого email — адреса нельзя перебирать.
+        self.request.session["pending_verification_email"] = form.cleaned_data["email"].strip().lower()
         user = User.objects.filter(email__iexact=form.cleaned_data["email"].strip(), is_active=True,
                                    is_email_verified=False).first()
         if user:
             try:
-                send_verification_email(user)
+                sent = send_verification_email(user)
             except (smtplib.SMTPException, OSError):
                 logger.exception("Verification email resend failed for user id %s", user.pk)
+                messages.error(self.request, "Не удалось отправить код. Повторите отправку позже; если ошибка сохраняется, проверьте подключение Gmail.")
+                return super().form_valid(form)
+            if not sent:
+                messages.info(self.request, "Код уже отправлен. Используйте последнее письмо или подождите минуту перед повторной отправкой.")
+                return super().form_valid(form)
         messages.info(
             self.request,
             "Если этот адрес зарегистрирован и почта доступна, код будет отправлен. "

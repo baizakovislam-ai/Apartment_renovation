@@ -1,0 +1,14 @@
+{% load workspace_ui %}<section class="card progress-card" aria-label="Прогресс ремонта">
+<div class="progress-card__main">
+<span class="eyebrow">Прогресс ремонта</span>
+<strong>{{ progress.percent }}%</strong>
+<div class="progress progress--lg" role="progressbar" aria-valuenow="{{ progress.percent }}" aria-valuemin="0" aria-valuemax="100" aria-label="Выполнение проекта"><span class="progress__fill{% if progress.percent == 100 %} progress__fill--green{% endif %}" style="width: {{ progress.percent }}%"></span></div>
+<small>Этап засчитывается полностью после приёмки заказчиком; до приёмки — до 90% по подтверждённым задачам.</small>
+</div>
+<div class="progress-card__stats">
+<span><small>Принято этапов</small><strong>{{ progress.stages_accepted }} из {{ progress.stages_total }}</strong></span>
+<span><small>На приёмке</small><strong>{{ progress.stages_pending }}</strong></span>
+<span><small>Задач выполнено</small><strong>{{ progress.tasks_done }} из {{ progress.tasks_total }}</strong></span>
+<span class="{% if progress.tasks_overdue %}is-alert{% endif %}"><small>Просрочено задач</small><strong>{{ progress.tasks_overdue }}</strong></span>
+</div>
+</section>

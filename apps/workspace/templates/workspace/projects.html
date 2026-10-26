@@ -22,13 +22,17 @@
 <div class="project-list-card__body">
 <span class="eyebrow">Проект № {{ item.project.pk }}</span>
 <h2>
-<a href="{% url 'workspace:dashboard' %}?project={{ item.project.pk }}">{{ item.project.name }}</a>
+<a href="{% url 'workspace:project' item.project.pk %}">{{ item.project.name }}</a>
 </h2>
-<p>Создан {{ item.project.created_at|date:'d E Y' }}</p>
+<p>{{ item.project.address|default:'Адрес не указан' }} · {{ item.project.get_status_display }}</p>
 <div class="project-meta">
 <span>
 <small>Этапы</small>
 <strong>{{ item.project.stage_count }}</strong>
+</span>
+<span>
+<small>Задачи</small>
+<strong>{{ item.project.task_count }}</strong>
 </span>
 <span>
 <small>Участники</small>
@@ -36,7 +40,7 @@
 </span>
 </div>
 <div class="card-actions">
-<a class="button button--primary" href="{% url 'workspace:stages' item.project.pk %}">Открыть проект {% icon 'arrow' %}</a>
+<a class="button button--primary" href="{% url 'workspace:project' item.project.pk %}">Открыть проект {% icon 'arrow' %}</a>
 <a class="button button--ghost" href="{% url 'workspace:members' item.project.pk %}">Команда</a>
 </div>
 </div>

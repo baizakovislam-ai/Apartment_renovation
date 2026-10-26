@@ -27,12 +27,19 @@ class ProjectListCreateView(generics.ListCreateAPIView):
         serializer.instance = services.create_project(user=self.request.user, **serializer.validated_data)
 
 
-class ProjectDetailView(generics.RetrieveAPIView):
+class ProjectDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = ProjectSerializer
+    http_method_names = ["get", "patch", "delete", "head", "options"]
 
     def get_queryset(self):
         return Project.objects.filter(members__user=self.request.user)
+
+    def perform_update(self, serializer):
+        serializer.instance = services.update_project(project=self.get_object(), actor=self.request.user, **serializer.validated_data)
+
+    def perform_destroy(self, instance):
+        services.delete_project(project=instance, actor=self.request.user)
 
 
 class MemberListView(APIView):

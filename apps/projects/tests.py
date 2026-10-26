@@ -1,3 +1,4 @@
+import tempfile
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
@@ -168,7 +169,7 @@ class ProjectAPITests(APITestCase):
         self.assertEqual(client.post("/api/projects/", {"name": "С CSRF"}, HTTP_X_CSRFTOKEN=token).status_code, 201)
 
 
-@override_settings(PASSWORD_HASHERS=["django.contrib.auth.hashers.MD5PasswordHasher"])
+@override_settings(PASSWORD_HASHERS=["django.contrib.auth.hashers.MD5PasswordHasher"], PRIVATE_MEDIA_ROOT=tempfile.mkdtemp())
 class DemoCommandTests(APITestCase):
     def test_demo_creates_team_and_stage_and_is_repeatable(self):
         output = StringIO()
@@ -176,7 +177,7 @@ class DemoCommandTests(APITestCase):
         from .models import Project
         project = Project.objects.get(name="Демонстрационный ремонт")
         self.assertEqual(project.members.count(), 3)
-        self.assertEqual(project.stages.count(), 1)
+        self.assertEqual(project.stages.count(), 5)
         self.assertTrue(self.client.login(username="foreman@example.com", password="Demo-test-password"))
         self.assertEqual(self.client.get(f"/api/projects/{project.pk}/stages/").status_code, 200)
         call_command("seed_demo", password="Another-password", stdout=output)

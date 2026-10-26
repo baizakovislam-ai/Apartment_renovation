@@ -221,3 +221,88 @@ select,.field input,.field textarea{background:#fff;color:var(--text);border:1px
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;scroll-behavior:auto!important}
 }
 
+
+/* ===== 40%: проект, задачи, фотоотчёты, приёмка, замечания ===== */
+.detail-layout .card,.progress-card,.acceptance-card,.remark-card,.danger-zone{padding:22px}
+.detail-layout{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:16px;align-items:start;margin-top:16px}
+.stack{display:grid;gap:16px;min-width:0}
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin:4px 0 0;background:#f8fafc;border-radius:10px;padding:16px}
+.facts dt{font-size:11px;color:var(--muted);margin-bottom:4px}
+.facts dd{margin:0;font-size:13px;font-weight:600;overflow-wrap:anywhere}
+.subhead{font-size:13px;margin:20px 0 6px}
+.prose{font-size:13px;line-height:1.6;color:#334155;margin:0;overflow-wrap:anywhere}
+.result-box{background:var(--teal-soft);border-radius:9px;padding:12px}
+.back-link{display:inline-block;margin-bottom:12px;color:var(--muted);font-size:12px;text-decoration:none}
+.text-danger{color:#dc2626;display:block;font-size:11px;margin-top:4px}
+.success-text{color:#15803d;font-size:13px;font-weight:600;margin:0}
+.is-alert strong{color:#dc2626}
+
+.progress-card{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1.5fr);gap:24px;align-items:center;margin-bottom:16px}
+.progress-card__main>strong{display:block;font-size:34px;margin:4px 0 10px}
+.progress-card__main small{display:block;color:var(--muted);font-size:11px;margin-top:8px;line-height:1.5}
+.progress--lg{height:10px}
+.progress-card__stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.progress-card__stats span{background:#f8fafc;border-radius:10px;padding:12px}
+.progress-card__stats small{display:block;font-size:11px;color:var(--muted)}
+.progress-card__stats strong{font-size:18px}
+.stage-progress{padding:12px 0;border-bottom:1px solid var(--border-light)}
+.stage-progress>div:first-child{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:8px}
+.stage-progress strong{font-size:13px}
+.stage-progress small{display:block;color:var(--muted);font-size:11px;margin-top:6px}
+.danger-zone{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;margin-top:16px;border:1px solid #fecaca}
+.danger-zone h2{margin:0 0 4px}
+
+.task-list,.remark-list,.acceptance-list{display:grid;gap:10px}
+.task-row{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1.2fr) minmax(0,1fr) auto;gap:14px;align-items:center;text-decoration:none;color:inherit;padding:16px 20px;transition:border-color .15s}
+.task-row:hover{border-color:#bfdbfe}
+.task-row--overdue{border-left:3px solid var(--red)}
+.task-row__main strong{display:block;font-size:14px;overflow-wrap:anywhere;margin-top:3px}
+.task-row .person{font-size:12px;display:flex;align-items:center;gap:8px;min-width:0}
+.deadline-cell small{display:block;font-size:10px;color:var(--muted)}
+.deadline-cell strong{font-size:13px;margin-right:6px}
+.deadline-cell em{font-style:normal;font-size:10px}
+.overdue{color:#dc2626!important}
+
+.photo-report{padding:14px 0;border-bottom:1px solid var(--border-light)}
+.photo-report__head{display:flex;gap:10px;align-items:center;margin-bottom:8px}
+.photo-report__head strong{display:block;font-size:13px}
+.photo-report__head small{color:var(--muted);font-size:11px}
+.photo-grid,.photo-strip{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px;margin-top:10px}
+.photo-grid img,.photo-strip img{width:100%;height:110px;object-fit:cover;border-radius:8px;display:block;background:#eef2f6}
+.report-form{margin-top:18px;padding-top:6px;border-top:1px dashed var(--border)}
+.report-form input[type=file]{font-size:12px;padding:8px 0;border:0}
+.decision-card form{margin:10px 0}
+.decision-card .button{width:100%;justify-content:center}
+.mini-row{display:flex;flex-direction:column;gap:3px;padding:10px 0;border-bottom:1px solid var(--border-light);text-decoration:none;color:inherit;font-size:12px}
+.mini-row small{color:var(--muted);font-size:11px}
+.mini-row .badge{align-self:flex-start}
+
+.acceptance-card .progress{margin:4px 0 14px}
+.checklist{list-style:none;padding:0;margin:0 0 10px;display:flex;flex-wrap:wrap;gap:8px 20px;font-size:12px}
+.checklist li::before{content:"✓";display:inline-block;width:18px;font-weight:700;color:var(--green)}
+.checklist li.bad::before{content:"!";color:var(--red)}
+.remark-chips{display:grid;gap:6px;margin:8px 0}
+.remark-chips a{font-size:12px;color:inherit;text-decoration:none}
+.inline-details{display:inline-block}
+.inline-details[open]{display:block;width:100%}
+.inline-details summary{list-style:none}
+.inline-details summary::-webkit-details-marker{display:none}
+.inline-details form{margin-top:10px;max-width:520px}
+.decisions{margin-top:16px;border-top:1px solid var(--border-light);padding-top:10px}
+
+.remark-card--closed{opacity:.75}
+.remark-card h2{font-size:15px;line-height:1.45;overflow-wrap:anywhere}
+.remark-meta{display:flex;flex-wrap:wrap;gap:12px 28px;margin:6px 0 4px}
+.remark-meta small{display:block;font-size:11px;color:var(--muted);margin-bottom:3px}
+.remark-meta strong,.remark-meta .person{font-size:12px;display:flex;align-items:center;gap:8px}
+.thread{margin-top:14px;display:grid;gap:10px;background:#f8fafc;border-radius:10px;padding:12px}
+.thread__item{display:flex;gap:10px;font-size:12px}
+.thread__item small{color:var(--muted)}
+.thread__item p{margin:4px 0 0;line-height:1.5;overflow-wrap:anywhere}
+.reply-form{margin-top:14px}
+.reply-form textarea{width:100%;border:1px solid var(--border);border-radius:9px;padding:10px;resize:vertical}
+.reply-form .card-actions{margin-top:10px}
+button[disabled]{opacity:.6;cursor:progress}
+
+@media(max-width:1000px){.detail-layout,.progress-card{grid-template-columns:1fr}}
+@media(max-width:700px){.task-row{grid-template-columns:1fr;gap:8px}.progress-card__stats{grid-template-columns:1fr 1fr}.detail-layout .card,.progress-card,.acceptance-card,.remark-card{padding:16px}}

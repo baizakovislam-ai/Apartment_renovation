@@ -5,16 +5,16 @@
 <p>{{ subtitle }}</p>
 </div>
 </div>
-<form class="card full-form live-form" method="post" novalidate>{% csrf_token %}{% if form.non_field_errors %}<div class="notice notice--error" role="alert">{{ form.non_field_errors }}</div>{% endif %}<div class="form-section">
+<form class="card full-form live-form" method="post" novalidate data-once>{% csrf_token %}{% if form.non_field_errors %}<div class="notice notice--error" role="alert">{{ form.non_field_errors }}</div>{% endif %}{% for hidden in form.hidden_fields %}{{ hidden }}{% endfor %}<div class="form-section">
 <div>
 <span>01</span>
-<h2>Данные {% if page == 'stages' %}этапа{% else %}проекта{% endif %}</h2>
+<h2>Данные {{ section|default:'проекта' }}</h2>
 <p class="muted-text">Все изменения сохраняются в истории проекта.</p>
 </div>
-<div>{% for field in form %}{% include 'accounts/_field.html' %}{% endfor %}</div>
+<div>{% for field in form.visible_fields %}{% include 'accounts/_field.html' %}{% endfor %}</div>
 </div>
 <div class="full-form__footer">
-<a class="button button--secondary" href="{% if project %}{% url 'workspace:stages' project.pk %}{% else %}{% url 'workspace:projects' %}{% endif %}">Отмена</a>
+<a class="button button--secondary" href="{% if project and cancel_url %}{% url cancel_url project.pk %}{% elif project %}{% url 'workspace:stages' project.pk %}{% else %}{% url 'workspace:projects' %}{% endif %}">Отмена</a>
 <button class="button button--primary" type="submit">{% icon 'check' %} Сохранить</button>
 </div>
 </form>{% endblock %}

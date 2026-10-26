@@ -5,8 +5,8 @@ from .models import Project, ProjectEvent, ProjectInvitation, ProjectMember
 class ProjectSerializer(serializers.ModelSerializer):
     class Meta:
         model = Project
-        fields = ["id", "name", "created_by", "created_at"]
-        read_only_fields = ["id", "created_by", "created_at"]
+        fields = ["id", "name", "address", "area", "start_date", "end_date", "budget", "description", "status", "created_by", "created_at", "updated_at"]
+        read_only_fields = ["id", "status", "created_by", "created_at", "updated_at"]
 
 
 class MemberSerializer(serializers.ModelSerializer):

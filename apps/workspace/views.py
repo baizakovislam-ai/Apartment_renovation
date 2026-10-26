@@ -1,6 +1,6 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.db.models import Count
+from django.db.models import Count, Q
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -12,11 +12,13 @@ from apps.projects import services as project_services
 from apps.projects.models import Project, ProjectInvitation, ProjectMember
 from apps.projects.permissions import require_customer, require_manager
 from apps.repairs import services as stage_services
+from apps.repairs import task_services
 from .forms import InvitationForm, ProjectForm, StageForm
 
 
 def own_projects(user):
-    return Project.objects.filter(pk__in=ProjectMember.objects.filter(user=user).values("project_id")).annotate(stage_count=Count("stages", distinct=True), member_count=Count("members", distinct=True))
+    return Project.objects.filter(pk__in=ProjectMember.objects.filter(user=user).values("project_id")).annotate(
+        stage_count=Count("stages", distinct=True), member_count=Count("members", distinct=True), task_count=Count("tasks", distinct=True))
 
 
 def own_project(request, project_id):
@@ -59,9 +61,12 @@ def dashboard(request):
     project = get_object_or_404(projects, pk=project_id) if project_id and project_id.isdigit() else projects.first()
     stages = list(project.stages.select_related("responsible__user")) if project else []
     completed = sum(stage.status in ["completed", "pending_acceptance", "accepted"] for stage in stages)
-    upcoming = sorted([stage for stage in stages if stage.status not in ["completed", "accepted", "cancelled"]], key=lambda stage: stage.end_date)
+    progress = task_services.project_progress(project) if project else None
+    open_tasks = task_services.visible_tasks(project, request.user).exclude(status="done") if project else []
     return render(request, "workspace/dashboard.html", context(request, project, stages=stages[:5], total_stages=len(stages),
-        completed_stages=completed, overdue=sum(stage.end_date < timezone.localdate() for stage in upcoming), upcoming=upcoming[:4]))
+        completed_stages=completed, progress=progress, upcoming=list(open_tasks[:5]),
+        open_task_count=open_tasks.count() if project else 0,
+        my_open_tasks=open_tasks.filter(assignee__user=request.user).count() if project else 0))
 
 
 @login_required
@@ -79,16 +84,21 @@ def project_list(request):
 def project_create(request):
     form = ProjectForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
-        project = project_services.create_project(user=request.user, **form.cleaned_data)
+        try:
+            project = project_services.create_project(user=request.user, **form.cleaned_data)
+        except APIException as error:
+            form_service_error(form, error)
+            return render(request, "workspace/form.html", context(request, page="projects", form=form, title="Новый проект", subtitle="Название обязательно, остальные поля можно заполнить позже.", section="проекта"))
         messages.success(request, "Проект создан. Теперь пригласите команду и добавьте этапы.")
         return redirect("workspace:members", project_id=project.pk)
-    return render(request, "workspace/form.html", context(request, page="projects", form=form, title="Новый проект", subtitle="Начните с названия. Затем добавьте участников и этапы.", back_url="workspace:projects"))
+    return render(request, "workspace/form.html", context(request, page="projects", form=form, title="Новый проект", subtitle="Название обязательно, остальные поля можно заполнить позже.", section="проекта"))
 
 
 @login_required
 def stage_list(request, project_id):
     project = own_project(request, project_id)
-    stages = project.stages.select_related("responsible__user")
+    stages = project.stages.select_related("responsible__user").annotate(
+        task_total=Count("tasks", distinct=True), task_done=Count("tasks", filter=Q(tasks__status="done"), distinct=True))
     query = request.GET.get("q", "").strip()
     state = request.GET.get("status", "")
     if query:
@@ -119,7 +129,7 @@ def stage_form(request, project_id, stage_id=None):
         else:
             messages.success(request, "Этап сохранён.")
             return redirect("workspace:stages", project_id=project.pk)
-    return render(request, "workspace/form.html", context(request, project, "stages", form=form, title="Редактирование этапа" if stage else "Новый этап", subtitle="Укажите сроки работ и ответственного из команды проекта.", stage=stage))
+    return render(request, "workspace/form.html", context(request, project, "stages", form=form, title="Редактирование этапа" if stage else "Новый этап", subtitle="Укажите сроки работ и ответственного из команды проекта.", stage=stage, section="этапа", cancel_url="workspace:stages"))
 
 
 @login_required

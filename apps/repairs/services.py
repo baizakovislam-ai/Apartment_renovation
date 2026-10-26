@@ -12,6 +12,8 @@ def validate_stage(project, data, instance=None):
     end = data.get("end_date", instance.end_date if instance else None)
     if start is not None and end is not None and end < start:
         raise ValidationError({"end_date": "Окончание не может быть раньше начала."})
+    if instance is not None and instance.tasks.exclude(due_date__range=(start, end)).exists():
+        raise ValidationError({"end_date": "Сроки задач этапа выходят за новые даты. Сначала измените сроки задач."})
     responsible = data.get("responsible", instance.responsible if instance else None)
     if responsible is None or not ProjectMember.objects.filter(pk=responsible.pk, project=project).exists():
         raise ValidationError({"responsible": "Ответственный должен участвовать в этом проекте."})
@@ -44,7 +46,11 @@ def update_stage(*, stage, actor, **data):
     for key, value in data.items():
         setattr(stage, key, value)
     stage.save()
-    record_event(project, actor, "stage.updated", stage_id=stage.pk, before=before, after={key: str(value) for key, value in data.items()})
+    record_event(project, actor, "stage.updated", stage_id=stage.pk, name=stage.name, before=before, after={key: str(value) for key, value in data.items()})
+    if stage.status == Stage.Status.IN_PROGRESS and project.status == project.Status.PLANNING:
+        project.status = project.Status.IN_PROGRESS
+        project.save(update_fields=["status", "updated_at"])
+        record_event(project, actor, "project.started", name=project.name)
     return stage
 
 
