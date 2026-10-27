@@ -165,7 +165,7 @@ DEFAULT_FROM_EMAIL = os.getenv(
 AUTH_USER_MODEL = "accounts.User"
 
 LOGIN_URL = "accounts:login"
-LOGIN_REDIRECT_URL = "accounts:profile"
+LOGIN_REDIRECT_URL = "workspace:dashboard"  # after sign-in show projects and pending invitations
 LOGOUT_REDIRECT_URL = "accounts:login"
 
 LANGUAGE_CODE = "ru"

@@ -2,6 +2,7 @@ from django.contrib.auth import get_user_model
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 
+from apps.estimates.testing import mark_started
 from apps.projects.models import Project, ProjectInvitation, ProjectMember
 from apps.projects.services import create_project
 from apps.repairs.models import Stage
@@ -33,7 +34,7 @@ class WorkspaceTests(TestCase):
             with self.subTest(page=name):
                 response = self.client.get(reverse("workspace:" + name, args=args))
                 self.assertEqual(response.status_code, 200)
-                self.assertContains(response, "workspace/design.css")
+                self.assertContains(response, "workspace/ui.css")
         self.assertEqual(self.client.get(reverse("accounts:profile")).status_code, 200)
 
     def test_dashboard_has_real_counts_and_no_mock_budget(self):
@@ -56,7 +57,7 @@ class WorkspaceTests(TestCase):
     def test_project_creation_adds_customer(self):
         response = self.client.post(reverse("workspace:project-create"), {"name": "Новый объект"})
         project = Project.objects.get(name="Новый объект")
-        self.assertRedirects(response, reverse("workspace:members", args=[project.pk]))
+        self.assertRedirects(response, reverse("workspace:project", args=[project.pk]))
         self.assertEqual(project.members.get().user, self.owner)
 
     def test_create_update_stage_and_dates(self):
@@ -94,13 +95,18 @@ class WorkspaceTests(TestCase):
         self.assertEqual(response.status_code, 302)
         invitation = ProjectInvitation.objects.get(email=self.outsider.email)
         self.assertContains(self.client.get(url), f"/invitations/{invitation.token}/")
-        self.client.force_login(self.foreman)
-        self.assertNotContains(self.client.get(url), invitation.token)
+        self.client.force_login(self.worker)
+        self.assertNotContains(self.client.get(url), invitation.token)  # executors never see invitation links
         accept_url = reverse("workspace:accept", args=[invitation.token])
-        self.assertEqual(self.client.get(accept_url).status_code, 404)
+        self.client.force_login(self.foreman)
+        wrong_account = self.client.get(accept_url)
+        self.assertContains(wrong_account, "Выйти и войти как")  # explains the account mix-up instead of a bare 404
+        self.assertNotContains(wrong_account, "Принять приглашение")
+        self.client.post(accept_url)
+        self.assertFalse(self.project.members.filter(user=self.foreman, role="executor").exists())
         self.client.force_login(self.outsider)
         self.assertContains(self.client.get(accept_url), "Принять приглашение")
-        self.assertRedirects(self.client.post(accept_url), reverse("workspace:stages", args=[self.project.pk]))
+        self.assertRedirects(self.client.post(accept_url), reverse("workspace:project", args=[self.project.pk]))
         self.assertEqual(self.client.post(accept_url).status_code, 200)
         self.assertEqual(self.project.members.filter(user=self.outsider).count(), 1)
 
@@ -110,7 +116,10 @@ class WorkspaceTests(TestCase):
         self.assertEqual(self.client.post(url, {"action": "role", "role": "executor"}).status_code, 302)
         self.assertEqual(self.client.get(url).status_code, 405)
         self.assertEqual(self.client.post(url, {"action": "remove"}).status_code, 302)
-        self.assertFalse(ProjectMember.objects.filter(pk=member.pk).exists())
+        member.refresh_from_db()
+        self.assertFalse(member.is_active)  # kept for history, but without access
+        self.client.force_login(self.worker)
+        self.assertEqual(self.client.get(reverse("workspace:stages", args=[self.project.pk])).status_code, 404)
 
     def test_invitation_cancel(self):
         self.client.post(reverse("workspace:members", args=[self.project.pk]), {"email": self.outsider.email, "role": "executor"})
@@ -158,6 +167,7 @@ class Milestone40PagesTests(TestCase):
         cls.foreman = User.objects.create_user(email="foreman40@example.com", full_name="Прораб", is_email_verified=True)
         cls.worker = User.objects.create_user(email="worker40@example.com", full_name="Исполнитель", is_email_verified=True)
         cls.project = create_project(user=cls.owner, name="Квартира", address="ул. Киевская, 1")
+        mark_started(cls.project)  # works started: estimate approved (ТЗ 4.2)
         cls.foreman_member = ProjectMember.objects.create(project=cls.project, user=cls.foreman, role="foreman")
         cls.worker_member = ProjectMember.objects.create(project=cls.project, user=cls.worker, role="executor")
         cls.today = timezone.localdate()
@@ -201,7 +211,9 @@ class Milestone40PagesTests(TestCase):
         self.client.force_login(self.owner)
         self.client.post(reverse("workspace:project-delete", args=[self.project.pk]))
         self.assertTrue(Project.objects.filter(pk=self.project.pk).exists())  # has stages
-        self.client.post(reverse("workspace:project-delete", args=[draft.pk]))
+        from apps.projects.services import invite_member
+        invite_member(project=draft, actor=self.owner, email="new@example.com", role="executor")
+        self.client.post(reverse("workspace:project-delete", args=[draft.pk]))  # invitations go away with the project
         self.assertFalse(Project.objects.filter(pk=draft.pk).exists())
 
     def test_task_form_and_executor_flow_through_pages(self):
@@ -220,3 +232,19 @@ class Milestone40PagesTests(TestCase):
         self.assertEqual(self.task.status, "review")
         response = self.client.post(url, {"action": "approve", "version": 3}, follow=True)
         self.assertContains(response, "Проверку выполняют заказчик или прораб")
+
+    def test_dashboard_counters_follow_role_and_task_page_hints(self):
+        from datetime import timedelta
+        from apps.repairs.models import Task
+        from apps.repairs.task_services import create_task
+        other = get_user_model().objects.create_user(email="worker40b@example.com", full_name="Другой", is_email_verified=True)
+        other_member = ProjectMember.objects.create(project=self.project, user=other, role="executor")
+        late = create_task(project=self.project, actor=self.foreman, stage=self.stage, name="Чужая", assignee=other_member, due_date=self.today)
+        Task.objects.filter(pk=late.pk).update(due_date=self.today - timedelta(days=1))
+        self.client.force_login(self.foreman)
+        self.assertEqual(self.client.get(reverse("workspace:dashboard")).context["overdue_count"], 1)
+        self.client.force_login(self.worker)
+        self.assertEqual(self.client.get(reverse("workspace:dashboard")).context["overdue_count"], 0)  # not their task
+        self.client.force_login(self.owner)
+        task_page = self.client.get(reverse("workspace:task", args=[self.project.pk, self.task.pk]))
+        self.assertContains(task_page, "Ждём, когда исполнитель начнёт выполнение")

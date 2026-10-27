@@ -3,7 +3,7 @@
 <span class="eyebrow">Команда проекта</span>
 <h1>Участники проекта</h1>
 <p>Приглашения, роли и состав команды «{{ project.name }}».</p>
-</div>{% if is_customer %}<a class="button button--primary" href="#invite">{% icon 'plus' %} Пригласить участника</a>{% endif %}</div>
+</div>{% if can_invite %}<a class="button button--primary" href="#invite">{% icon 'plus' %} Пригласить участника</a>{% endif %}</div>
 <div class="people-grid">
 <section class="card member-list">
 <div class="card__head">
@@ -12,13 +12,13 @@
 </div>{% for member in team %}<div class="member-row">
 <span class="avatar avatar--teal">{{ member.user|initials }}</span>
 <span>
-<strong>{{ member.user|display_name }}</strong>
-<small>{{ member.user.email }}</small>
+<strong>{{ member.user|display_name }}{% if member.user_id == user.pk %} (вы){% endif %}</strong>
+<small>{{ member.user.email }}{% if member.work_text %} · в работе: {{ member.work_text }}{% endif %}</small>
 </span>
-<span class="badge badge--{% if member.role == 'customer' %}blue{% else %}gray{% endif %}">{{ member.get_role_display }}</span>{% if is_customer and member.role != 'customer' %}<details class="member-controls">
+<span class="badge badge--{% if member.role == 'customer' %}blue{% elif member.role == 'foreman' %}teal{% else %}gray{% endif %}">{{ member.get_role_display }}</span>{% if is_customer and member.role != 'customer' %}<details class="member-controls">
 <summary aria-label="Действия для {{ member.user|display_name }}">•••</summary>
 <div>
-<form method="post" action="{% url 'workspace:member-action' project.pk member.pk %}">{% csrf_token %}<input type="hidden" name="action" value="role">
+<form method="post" action="{% url 'workspace:member-action' project.pk member.pk %}" data-once>{% csrf_token %}<input type="hidden" name="action" value="role">
 <label for="role-{{ member.pk }}">Роль</label>
 <select id="role-{{ member.pk }}" name="role">
 <option value="executor" {% if member.role == 'executor' %}selected{% endif %}>Исполнитель</option>
@@ -26,36 +26,52 @@
 </select>
 <button class="button button--secondary" type="submit">Сохранить роль</button>
 </form>
-<form method="post" action="{% url 'workspace:member-action' project.pk member.pk %}" data-confirm="Удалить участника из проекта?">{% csrf_token %}<input type="hidden" name="action" value="remove">
-<button class="button button--danger" type="submit">Удалить участника</button>
+<form method="post" action="{% url 'workspace:member-action' project.pk member.pk %}" data-confirm="Удалить {{ member.user|display_name }} из проекта? Выполненная работа и история останутся.">{% csrf_token %}<input type="hidden" name="action" value="remove">
+{% if member.work_text %}<label for="replacement-{{ member.pk }}">Кому передать незавершённое ({{ member.work_text }})</label>
+<select id="replacement-{{ member.pk }}" name="replacement" required>
+<option value="">— выберите участника —</option>
+{% for other in member.replacements %}<option value="{{ other.pk }}">{{ other.user|display_name }} — {{ other.get_role_display }}</option>{% endfor %}
+</select>
+<small class="muted-text">Задачи передаются только исполнителю, замечания — прорабу или исполнителю.</small>{% endif %}
+<button class="button button--outline-danger" type="submit">Удалить из проекта</button>
 </form>
 </div>
 </details>{% else %}<span>
-</span>{% endif %}</div>{% endfor %}</section>
+</span>{% endif %}</div>{% endfor %}
+{% if former %}<details class="former-members"><summary>Бывшие участники ({{ former|length }})</summary>
+{% for member in former %}<div class="member-row member-row--former">
+<span class="avatar">{{ member.user|initials }}</span>
+<span><strong>{{ member.user|display_name }}</strong><small>{{ member.user.email }} · был(а) {{ member.get_role_display|lower }} · удалён(а) {{ member.removed_at|date:'d.m.Y' }}</small></span>
+<span class="badge badge--gray">Не в команде</span><span></span>
+</div>{% endfor %}
+<p class="muted-text">Бывшего участника можно пригласить снова — его прежняя работа останется за ним.</p>
+</details>{% endif %}
+</section>
 <aside class="card access-card">
 <span class="eyebrow">Права доступа</span>
 <h2>Каждому — своя роль</h2>
 <div>
 <span class="badge badge--blue">Заказчик</span>
-<p>Приглашает участников и управляет их ролями. Создаёт и редактирует этапы.</p>
+<p>Приглашает участников, меняет роли и удаляет из команды. Принимает этапы, создаёт и закрывает замечания.</p>
 </div>
 <div>
 <span class="badge badge--teal">Прораб</span>
-<p>Планирует этапы и назначает ответственных из команды.</p>
+<p>Приглашает исполнителей, планирует этапы и задачи, проверяет результат, оставляет замечания исполнителям и передаёт этапы на приёмку.</p>
 </div>
 <div>
 <span class="badge badge--gray">Исполнитель</span>
-<p>Просматривает участников и этапы своего проекта.</p>
+<p>Видит только назначенные ему задачи: выполняет их, прикладывает фотоотчёты и отвечает на замечания. Смета и бюджет ему недоступны.</p>
 </div>
 </aside>
 </div>
-{% if is_customer %}<section class="card invite-card" id="invite">
+{% if can_invite %}<section class="card invite-card" id="invite">
 <div>
 <span class="eyebrow">Расширьте команду</span>
 <h2>Пригласить участника</h2>
-<p class="muted-text">Доступ появится после принятия приглашения. Передайте получателю ссылку из списка ниже.</p>
+<p class="muted-text">На указанный email придёт письмо со ссылкой. Ещё приглашение появится у человека на главной странице, как только он войдёт под этим email. Если письмо не дошло, скопируйте ссылку из списка ниже.</p>
+{% if membership.role == 'foreman' %}<p class="muted-text">Прораб может приглашать исполнителей. Прораба приглашает заказчик.</p>{% endif %}
 </div>
-<form method="post" novalidate>{% csrf_token %}{% if form.non_field_errors %}<div class="notice notice--error" role="alert">{{ form.non_field_errors }}</div>{% endif %}{% for field in form %}{% include 'accounts/_field.html' %}{% endfor %}<button class="button button--primary" type="submit">{% icon 'plus' %} Создать приглашение</button>
+<form method="post" novalidate data-once>{% csrf_token %}{% if form.non_field_errors %}<div class="notice notice--error" role="alert">{{ form.non_field_errors }}</div>{% endif %}{% for field in form %}{% include 'accounts/_field.html' %}{% endfor %}<button class="button button--primary" type="submit">{% icon 'plus' %} Отправить приглашение</button>
 </form>
 </section>
 <section class="card invitations-card">
@@ -65,12 +81,12 @@
 </div>{% for invitation in invitations %}<article class="invitation-row">
 <div>
 <strong>{{ invitation.email }}</strong>
-<small>{{ invitation.get_role_display }} · до {{ invitation.expires_at|date:'d.m.Y H:i' }}</small>
+<small>{{ invitation.get_role_display }} · пригласил(а) {{ invitation.invited_by|display_name }} · до {{ invitation.expires_at|date:'d.m.Y H:i' }}</small>
 </div>
-<span class="badge badge--{% if invitation.status == 'accepted' %}green{% else %}gray{% endif %}">{% if invitation.expired %}Истекло{% else %}{{ invitation.get_status_display }}{% endif %}</span>{% if invitation.status == 'pending' and not invitation.expired %}<div class="invitation-link">
+<span class="badge badge--{% if invitation.status == 'accepted' %}green{% elif invitation.status == 'declined' %}red{% elif invitation.status == 'pending' and not invitation.expired %}orange{% else %}gray{% endif %}">{% if invitation.expired %}Истекло{% else %}{{ invitation.get_status_display }}{% endif %}</span>{% if invitation.status == 'pending' and not invitation.expired %}<div class="invitation-link">
 <label class="sr-only" for="invite-{{ invitation.pk }}">Ссылка приглашения для {{ invitation.email }}</label>
 <input id="invite-{{ invitation.pk }}" readonly value="{{ invitation.accept_url }}">
 <button class="button button--secondary" type="button" data-copy="invite-{{ invitation.pk }}">Копировать ссылку</button>
-<form method="post" action="{% url 'workspace:invitation-cancel' project.pk invitation.pk %}">{% csrf_token %}<button class="button button--ghost" type="submit">Отменить</button>
-</form>
+{% if invitation.can_cancel %}<form method="post" action="{% url 'workspace:invitation-cancel' project.pk invitation.pk %}">{% csrf_token %}<button class="button button--ghost" type="submit">Отменить</button>
+</form>{% endif %}
 </div>{% endif %}</article>{% empty %}<p class="muted-text">Приглашений пока нет.</p>{% endfor %}</section>{% endif %}{% endblock %}

@@ -4,6 +4,14 @@
 <h1>{{ project.name }}</h1>
 <p>{{ project.address|default:'Адрес не указан' }}</p>
 </div>{% if is_customer and project.status != 'completed' %}<a class="button button--primary" href="{% url 'workspace:project-edit' project.pk %}">{% icon 'edit' %} Редактировать</a>{% endif %}</div>
+{% if is_archived %}<section class="card archived-card">
+<div><span class="eyebrow">В архиве с {{ project.archived_at|date:'d.m.Y H:i' }}</span><h2>Проект в архиве</h2><p class="muted-text">Причина: {{ project.archive_reason }}</p></div>
+{% if membership.role == 'customer' %}<form method="post" action="{% url 'workspace:project-archive' project.pk %}" data-once>{% csrf_token %}<input type="hidden" name="action" value="restore"><button class="button button--primary" type="submit">Вернуть из архива</button></form>{% endif %}
+</section>{% endif %}
+{% if next_steps %}<section class="card next-steps">
+<div class="card__head"><div><span class="eyebrow">С чего начать</span><h2>Что сделать дальше</h2></div></div>
+<ol>{% for title, done, url in next_steps %}<li class="{% if done %}done{% endif %}"><span class="step-mark">{% if done %}✓{% else %}{{ forloop.counter }}{% endif %}</span>{% if done %}<span>{{ title }}</span>{% else %}<a href="{{ url }}">{{ title }}</a>{% endif %}</li>{% endfor %}</ol>
+</section>{% endif %}
 {% include 'workspace/_progress.html' %}
 <div class="detail-layout">
 <section class="card">
@@ -37,10 +45,18 @@
 <small>{{ percent }}% · задач выполнено {{ stage.task_done }} из {{ stage.task_total }}</small>
 </div>{% empty %}<div class="empty-state compact"><h3>Этапов пока нет</h3><p>Добавьте этапы, чтобы видеть прогресс.</p></div>{% endfor %}</section>
 </div>
-{% if is_customer and project.status == 'planning' and project.created_by_id == user.pk and not project.stage_count and not project.task_count %}<section class="card danger-zone">
-<div>
-<h2>Удалить черновик проекта</h2>
-<p class="muted-text">Доступно, пока в проекте нет этапов и задач. Действие необратимо.</p>
+{% if is_owner and not is_archived %}<section class="card danger-zone" id="danger">
+<div class="danger-zone__part">
+<h2>Удалить проект</h2>
+{% if delete_blockers %}<p class="muted-text">Безвозвратно удалить нельзя: {{ delete_blockers|join:', ' }}. По ТЗ рабочие записи не стираются — отправьте проект в архив.</p>
+{% else %}<p class="muted-text">Проект удалится вместе с этапами без задач{% if other_members %}, командой ({{ other_members }} чел. потеряют доступ){% endif %}{% if pending_invitations %} и приглашениями ({{ pending_invitations }}){% endif %}. Восстановить будет нельзя.</p>
+<form method="post" action="{% url 'workspace:project-delete' project.pk %}" data-confirm="Удалить проект «{{ project.name }}» без возможности восстановления?">{% csrf_token %}<button class="button button--outline-danger" type="submit">Удалить проект</button></form>{% endif %}
 </div>
-<form method="post" action="{% url 'workspace:project-delete' project.pk %}" data-confirm="Удалить проект «{{ project.name }}» без возможности восстановления?">{% csrf_token %}<button class="button button--danger" type="submit">Удалить черновик</button></form>
-</section>{% endif %}{% endblock %}
+<div class="danger-zone__part">
+<h2>Отправить в архив</h2>
+<p class="muted-text">Проект скроется из списка, данные и история сохранятся. Вернуть можно в любой момент.</p>
+<form method="post" action="{% url 'workspace:project-archive' project.pk %}" data-once>{% csrf_token %}<input type="hidden" name="action" value="archive">
+<div class="field"><label for="archive-reason">Причина</label><input id="archive-reason" name="reason" required placeholder="Например, ремонт отменён заказчиком"></div>
+<button class="button button--secondary" type="submit">В архив</button></form>
+</div>
+</section>{% elif membership.role == 'customer' and not is_archived %}<p class="muted-text danger-note">Удалить или архивировать проект может только заказчик, который его создал.</p>{% endif %}{% endblock %}

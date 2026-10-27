@@ -1,6 +1,7 @@
 from django.contrib.auth import get_user_model
 from rest_framework.test import APITestCase
 
+from apps.estimates.testing import mark_started
 from apps.projects.models import ProjectEvent, ProjectMember
 from apps.projects.services import create_project
 from .models import Stage
@@ -14,6 +15,7 @@ class StageAPITests(APITestCase):
         self.executor = User.objects.create_user(email="executor@example.com", full_name="executor", is_email_verified=True)
         self.stranger = User.objects.create_user(email="stranger@example.com", full_name="stranger", is_email_verified=True)
         self.project = create_project(user=self.customer, name="Ремонт")
+        mark_started(self.project)  # works started: estimate approved (ТЗ 4.2)
         self.customer_member = self.project.members.get(user=self.customer)
         self.foreman_member = ProjectMember.objects.create(project=self.project, user=self.foreman, role="foreman")
         self.executor_member = ProjectMember.objects.create(project=self.project, user=self.executor, role="executor")
@@ -73,11 +75,18 @@ class StageAPITests(APITestCase):
         self.assertEqual(self.client.post(self.url, {**self.payload, "responsible": other_member.pk}).status_code, 400)
         self.assertEqual(self.client.post(self.url, {**self.payload, "responsible": None}, format="json").status_code, 400)
 
-    def test_assigned_member_cannot_be_removed_or_have_role_changed(self):
-        self.create_stage()
+    def test_responsible_member_is_removed_only_with_hand_over(self):
+        stage_id = self.create_stage().data["id"]
         url = f"/api/projects/{self.project.pk}/members/{self.foreman_member.pk}/"
-        self.assertEqual(self.client.delete(url).status_code, 400)
-        self.assertEqual(self.client.patch(url, {"role": "executor"}).status_code, 400)
+        response = self.client.delete(url)
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("незавершённая работа", str(response.data))
+        self.assertEqual(self.client.delete(f"{url}?replacement={self.customer_member.pk}").status_code, 204)
+        self.foreman_member.refresh_from_db()
+        self.assertFalse(self.foreman_member.is_active)
+        self.assertEqual(Stage.objects.get(pk=stage_id).responsible, self.customer_member)
+        self.client.force_authenticate(self.foreman)
+        self.assertEqual(self.client.get(self.url).status_code, 404)  # access is gone
 
     def test_only_author_can_delete_draft(self):
         response = self.create_stage()

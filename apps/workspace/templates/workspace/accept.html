@@ -1,8 +1,20 @@
-{% extends 'workspace/base.html' %}{% block title %}Приглашение в проект{% endblock %}{% block content %}<section class="card accept-card">
-<span class="eyebrow">Вас пригласили в команду</span>
+{% extends 'workspace/base.html' %}{% load workspace_ui %}{% block title %}Приглашение в проект{% endblock %}{% block content %}<section class="card accept-card">
+<span class="eyebrow">Приглашение в команду</span>
 <h1>{{ invitation.project.name }}</h1>
-<p>Аккаунт: <strong>{{ invitation.email }}</strong>
-</p>
-<p>Ваша роль: <strong>{{ invitation.get_role_display }}</strong>
-</p>{% if error %}<div class="notice notice--error" role="alert">{{ error }}</div>{% endif %}{% if available %}<form method="post">{% csrf_token %}<button class="button button--primary" type="submit">Принять приглашение</button>
-</form>{% else %}<div class="notice">Приглашение уже принято, отменено или срок его действия истёк.</div>{% endif %}</section>{% endblock %}
+<p>Роль: <strong>{{ invitation.get_role_display }}</strong> · пригласил(а) {{ invitation.invited_by|display_name }}</p>
+<p>Приглашение для: <strong>{{ invitation.email }}</strong></p>
+{% if error %}<div class="notice notice--error" role="alert">{{ error }}</div>{% endif %}
+{% if not own_email %}<div class="notice notice--warning">
+<p>Сейчас вы вошли как <strong>{{ user.email }}</strong>, а приглашение отправлено на <strong>{{ invitation.email }}</strong>.</p>
+<p>Выйдите и войдите под адресом {{ invitation.email }}. Если аккаунта с этим адресом ещё нет — зарегистрируйтесь с ним, и приглашение появится на главной странице.</p>
+</div>
+<form method="post" action="{% url 'accounts:logout' %}">{% csrf_token %}<input type="hidden" name="next" value="{{ relogin_url }}"><button class="button button--primary" type="submit">Выйти и войти как {{ invitation.email }}</button></form>
+{% elif available %}<form method="post" class="accept-actions" data-once>{% csrf_token %}
+<button class="button button--primary" name="decision" value="accept" type="submit">{% icon 'check' %} Принять приглашение</button>
+<button class="button button--ghost" name="decision" value="decline" type="submit">Отклонить</button>
+</form>
+{% elif invitation.status == 'accepted' %}<div class="notice notice--success">Приглашение уже принято.</div><a class="button button--primary" href="{% url 'workspace:project' invitation.project.pk %}">Открыть проект</a>
+{% elif invitation.project.is_archived %}<div class="notice">Проект в архиве — присоединиться к нему сейчас нельзя.</div>
+{% elif expired %}<div class="notice">Срок действия приглашения истёк. Попросите прислать новое.</div>
+{% else %}<div class="notice">Приглашение {{ invitation.get_status_display|lower }}. Если вы всё ещё хотите присоединиться, попросите прислать новое.</div>{% endif %}
+</section>{% endblock %}

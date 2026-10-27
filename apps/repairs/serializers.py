@@ -17,7 +17,7 @@ class StageSerializer(serializers.ModelSerializer):
         super().__init__(*args, **kwargs)
         project = self.context.get("project")
         if project is not None:
-            self.fields["responsible"].queryset = project.members.all()
+            self.fields["responsible"].queryset = project.members.filter(is_active=True)
 
 
 class TaskSerializer(serializers.ModelSerializer):
@@ -41,7 +41,7 @@ class TaskSerializer(serializers.ModelSerializer):
         project = self.context.get("project")
         if project is not None:
             self.fields["stage"].queryset = project.stages.all()
-            self.fields["assignee"].queryset = project.members.all()
+            self.fields["assignee"].queryset = project.members.filter(is_active=True)
 
     def get_assignee_name(self, task):
         return task.assignee.user.get_full_name() or task.assignee.user.get_username()

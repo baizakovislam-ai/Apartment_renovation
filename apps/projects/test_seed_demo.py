@@ -27,3 +27,15 @@ class SeedDemoTests(TestCase):
         self.assertEqual(project.photo_reports.count(), 3)
         call_command("seed_milestone40", stdout=io.StringIO())  # second run changes nothing
         self.assertEqual(project.tasks.count(), 6)
+
+    def test_seed_milestone80_adds_estimate_history_to_old_demo(self):
+        call_command("seed_demo", password="Demo-password-2026", stdout=io.StringIO())
+        project = Project.objects.get(name="Демонстрационный ремонт")
+        project.estimates.all().delete()  # simulate a demo created before the estimate module
+        project.calculations.all().delete()
+        call_command("seed_milestone80", stdout=io.StringIO())
+        statuses = list(project.estimates.order_by("number").values_list("status", flat=True))
+        self.assertEqual(statuses, ["rejected", "approved"])
+        self.assertEqual(project.calculations.count(), 1)
+        call_command("seed_milestone80", stdout=io.StringIO())  # repeat run changes nothing
+        self.assertEqual(project.estimates.count(), 2)

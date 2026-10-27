@@ -4,6 +4,7 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 from rest_framework.test import APITestCase
 
+from apps.estimates.testing import mark_started
 from apps.projects.models import ProjectMember
 from apps.projects.services import create_project
 from apps.repairs.models import Stage
@@ -18,6 +19,7 @@ class AcceptanceAndRemarkTests(APITestCase):
         make = lambda email: User.objects.create_user(email=email, full_name=email.split("@")[0], is_email_verified=True)
         self.customer, self.foreman, self.executor, self.stranger = map(make, ["c@example.com", "f@example.com", "e@example.com", "s@example.com"])
         self.project = create_project(user=self.customer, name="Ремонт")
+        mark_started(self.project)  # works started: estimate approved (ТЗ 4.2)
         self.foreman_member = ProjectMember.objects.create(project=self.project, user=self.foreman, role="foreman")
         self.executor_member = ProjectMember.objects.create(project=self.project, user=self.executor, role="executor")
         today = timezone.localdate()
@@ -69,7 +71,7 @@ class AcceptanceAndRemarkTests(APITestCase):
         self.finish_task()
         self.post(self.foreman, self.acceptance, {"action": "submit"})
         payload = {"stage": self.stage.pk, "description": "Трещина у окна", "responsible": self.executor_member.pk, "due_date": self.due}
-        self.assertEqual(self.post(self.foreman, self.remarks, payload).status_code, 403)
+        self.assertEqual(self.post(self.executor, self.remarks, payload).status_code, 403)
         remark = self.post(self.customer, self.remarks, payload).data
         self.stage.refresh_from_db()
         self.assertEqual(self.stage.status, Stage.Status.IN_PROGRESS)

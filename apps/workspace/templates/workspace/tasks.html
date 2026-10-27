@@ -8,8 +8,13 @@
 <label class="search">{% icon 'search' %}<input name="q" value="{{ filters.q }}" placeholder="Поиск задачи" aria-label="Поиск задачи"></label>
 <select name="status" aria-label="Статус задачи"><option value="">Все статусы</option>{% for value, label in task_statuses %}<option value="{{ value }}" {% if filters.status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
 <select name="stage" aria-label="Этап"><option value="">Все этапы</option>{% for stage in stage_options %}<option value="{{ stage.pk }}" {% if filters.stage == stage.pk|stringformat:'s' %}selected{% endif %}>{{ stage.name }}</option>{% endfor %}</select>
-<select name="deadline" aria-label="Срок"><option value="">Любой срок</option><option value="overdue" {% if filters.deadline == 'overdue' %}selected{% endif %}>Только просроченные</option></select>
-<button class="button button--secondary" type="submit">Применить</button>{% if has_filters %}<a href="{% url 'workspace:tasks' project.pk %}">Сбросить</a>{% endif %}<span class="muted-text">Найдено: {{ tasks|length }}</span>
+{% if is_manager %}<select name="assignee" aria-label="Исполнитель"><option value="">Все исполнители</option>{% for member in executors %}<option value="{{ member.pk }}" {% if filters.assignee == member.pk|stringformat:'s' %}selected{% endif %}>{{ member.user|display_name }}</option>{% endfor %}</select>{% endif %}
+<select name="deadline" aria-label="Срок"><option value="">Любой срок</option>{% for value, label in deadline_options %}<option value="{{ value }}" {% if filters.deadline == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+<select name="sort" aria-label="Сортировка">{% for value, label in sort_options %}<option value="{{ value }}" {% if filters.sort == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+<button class="button button--primary" type="submit">Применить</button>
+<details class="more-filters"{% if filters.due_from or filters.due_to %} open{% endif %}><summary>Срок с — по</summary>
+<label class="filter-label">с <input type="date" name="due_from" value="{{ filters.due_from }}" aria-label="Срок с"></label>
+<label class="filter-label">по <input type="date" name="due_to" value="{{ filters.due_to }}" aria-label="Срок по"></label></details>{% if has_filters %}<a href="{% url 'workspace:tasks' project.pk %}">Сбросить</a>{% endif %}<span class="muted-text">Найдено: {{ tasks|length }}</span>
 </form>
 <div class="task-list">{% for task in tasks %}<a class="card task-row{% if task.is_overdue %} task-row--overdue{% endif %}" href="{% url 'workspace:task' project.pk task.pk %}">
 <div class="task-row__main">

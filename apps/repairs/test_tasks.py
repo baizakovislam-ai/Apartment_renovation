@@ -11,6 +11,7 @@ from django.utils import timezone
 from PIL import Image
 from rest_framework.test import APITestCase
 
+from apps.estimates.testing import mark_started
 from apps.projects.models import ProjectEvent, ProjectMember
 from apps.projects.services import create_project
 from .models import Photo, Task
@@ -39,6 +40,7 @@ class TaskWorkflowTests(APITestCase):
         self.customer, self.foreman, self.executor, self.executor2, self.stranger = map(make, [
             "customer@example.com", "foreman@example.com", "executor@example.com", "executor2@example.com", "stranger@example.com"])
         self.project = create_project(user=self.customer, name="Ремонт")
+        mark_started(self.project)  # works started: estimate approved (ТЗ 4.2)
         self.foreman_member = ProjectMember.objects.create(project=self.project, user=self.foreman, role="foreman")
         self.executor_member = ProjectMember.objects.create(project=self.project, user=self.executor, role="executor")
         self.executor2_member = ProjectMember.objects.create(project=self.project, user=self.executor2, role="executor")
@@ -168,3 +170,18 @@ class TaskWorkflowTests(APITestCase):
         self.assertEqual((progress["percent"], progress["tasks_done"]), (90, 1))
         self.client.force_authenticate(self.customer)
         self.assertEqual(self.client.get(f"/api/projects/{self.project.pk}/progress/").data["percent"], 90)
+
+    def test_deadline_cannot_be_set_in_the_past(self):
+        self.stage.start_date = self.today - timedelta(days=5)
+        self.stage.save()
+        past = str(self.today - timedelta(days=1))
+        response = self.client.post(self.url, {**self.payload, "due_date": past})
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("прошлом", str(response.data))
+        task = self.create_task()
+        self.assertEqual(self.client.patch(f"/api/tasks/{task['id']}/", {"due_date": past, "version": task["version"]}).status_code, 400)
+        # A task that is already overdue can still be edited without touching its date.
+        Task.objects.filter(pk=task["id"]).update(due_date=self.today - timedelta(days=2))
+        response = self.client.patch(f"/api/tasks/{task['id']}/", {"name": "Переименована", "due_date": str(self.today - timedelta(days=2)), "version": task["version"]})
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertTrue(response.data["is_overdue"])

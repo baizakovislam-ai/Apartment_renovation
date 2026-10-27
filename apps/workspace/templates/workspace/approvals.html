@@ -1,0 +1,29 @@
+{% extends 'workspace/base.html' %}{% load workspace_ui %}{% block title %}Согласования{% endblock %}{% block content %}<div class="page-title">
+<div>
+<span class="eyebrow">Деньги и согласования</span>
+<h1>Согласования</h1>
+<p>Журнал всего, что требовало решения: сметы и приёмка этапов. Кто отправил, кто решил, когда и почему.</p>
+</div>
+{% if pending_count %}<span class="badge badge--orange" style="font-size:14px;padding:7px 14px">Ждут решения: {{ pending_count }}</span>{% endif %}
+</div>
+<div class="tabs-bar">
+<a href="?" class="{% if not filters.status %}active{% endif %}">Все</a>
+{% for value, label in approval_statuses %}<a href="?status={{ value }}{% if filters.type %}&type={{ filters.type }}{% endif %}" class="{% if filters.status == value %}active{% endif %}">{{ label }}</a>{% endfor %}
+</div>
+<form class="toolbar filter-form" method="get">
+{% if filters.status %}<input type="hidden" name="status" value="{{ filters.status }}">{% endif %}
+<label class="search">{% icon 'search' %}<input name="q" value="{{ filters.q }}" placeholder="Поиск: этап, причина, автор" aria-label="Поиск"></label>
+<select name="type" aria-label="Тип"><option value="">Все типы</option>{% for value, label in approval_types %}<option value="{{ value }}" {% if filters.type == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+<select name="author" aria-label="Автор"><option value="">Любой автор</option>{% for member in people %}<option value="{{ member.user_id }}" {% if filters.author == member.user_id|stringformat:'s' %}selected{% endif %}>{{ member.user|display_name }}</option>{% endfor %}</select>
+<label class="filter-label">с <input type="date" name="date_from" value="{{ filters.date_from }}" aria-label="Дата с"></label>
+<label class="filter-label">по <input type="date" name="date_to" value="{{ filters.date_to }}" aria-label="Дата по"></label>
+<button class="button button--secondary" type="submit">Применить</button>{% if has_filters %}<a href="{% url 'workspace:approvals' project.pk %}">Сбросить</a>{% endif %}
+<span class="muted-text">Найдено: {{ items|length }}</span>
+</form>
+<div class="task-list">{% for item in items %}<a class="card approval-row" href="{% if item.type == 'estimate' %}{% url 'workspace:estimate-version' project.pk item.object_id %}{% else %}{% url 'workspace:acceptance' project.pk %}#stage-{{ item.object_id }}{% endif %}">
+<span class="approval-row__icon approval-row__icon--{{ item.type }}">{% if item.type == 'estimate' %}{% icon 'money' %}{% else %}{% icon 'check' %}{% endif %}</span>
+<div><small>{{ item.type_label }} · {{ item.created_at|date:'d.m.Y H:i' }} · {{ item.author|display_name }}</small><strong>{{ item.title }}</strong>{% if item.text %}<p>«{{ item.text|truncatechars:140 }}»</p>{% endif %}{% if item.decided_at %}<small>Решение: {{ item.decided_by|display_name }}, {{ item.decided_at|date:'d.m.Y H:i' }}</small>{% endif %}</div>
+<span class="money">{% if item.amount is not None %}<strong>{{ item.amount|money }}</strong>{% endif %}</span>
+<span class="badge badge--{% if item.status == 'pending' %}orange{% elif item.status == 'approved' %}green{% elif item.status == 'rejected' %}red{% else %}gray{% endif %}"><span class="badge__dot"></span>{{ item.status_label }}</span>
+</a>{% empty %}<section class="card empty-state">{% icon 'stamp' %}<h2>{% if has_filters %}Ничего не найдено{% else %}Согласований пока не было{% endif %}</h2><p>{% if has_filters %}Измените условия поиска.{% else %}Здесь появятся сметы, отправленные на согласование, и решения по приёмке этапов.{% endif %}</p></section>{% endfor %}</div>
+{% endblock %}

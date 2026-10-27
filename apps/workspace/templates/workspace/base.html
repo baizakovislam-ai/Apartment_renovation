@@ -3,82 +3,57 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#172b4d">
+<meta name="theme-color" content="#0d1729">
 <title>{% block title %}Рабочее пространство{% endblock %} — Контроль ремонта</title>
 <link rel="icon" href="{% static 'workspace/favicon.svg' %}">
-<link rel="stylesheet" href="{% static 'workspace/design.css' %}">
-<link rel="stylesheet" href="{% static 'workspace/app.css' %}">
-<script src="{% static 'workspace/app.js' %}" defer>
-</script>
+<link rel="stylesheet" href="{% static 'workspace/ui.css' %}?v=80">
+<script src="{% static 'workspace/app.js' %}?v=80" defer></script>
 </head>
 <body>
 <a class="skip-link" href="#content">Перейти к содержимому</a>
 <div class="app">
 <aside class="sidebar" id="sidebar" aria-label="Основное меню">
-<a class="brand" href="{% url 'workspace:dashboard' %}">
-<span class="brand__mark">{% icon 'stages' %}</span>
-<span>
-<strong>Ремонт</strong>
-<small>контроль проекта</small>
-</span>
-</a>
+<a class="brand" href="{% url 'workspace:dashboard' %}"><span class="brand__mark">{% icon 'stages' %}</span><span><strong>Контроль ремонта</strong><small>квартиры под контролем</small></span></a>
 <button class="icon-button sidebar__close" data-menu-close aria-label="Закрыть меню">{% icon 'close' %}</button>
 <a class="project-switch" href="{% if project %}{% url 'workspace:project' project.pk %}{% else %}{% url 'workspace:projects' %}{% endif %}">
-<span class="project-switch__icon">{% if project %}{{ project.name|first }}{% else %}Р{% endif %}</span>
-<span>
-<small>Текущий проект</small>
-<strong>{{ project.name|default:'Выберите проект' }}</strong>
-</span>{% icon 'arrow' %}</a>
+<span class="project-switch__icon">{% if project %}{{ project.name|first|upper }}{% else %}+{% endif %}</span>
+<span><small>{% if project %}Текущий проект{% else %}Проект не выбран{% endif %}</small><strong>{{ project.name|default:'Выберите проект' }}</strong></span>{% icon 'arrow' %}</a>
 <nav class="nav">
 <span class="nav__label">Рабочее пространство</span>
-<a class="nav__item {% if page == 'dashboard' %}nav__item--active{% endif %}" href="{% url 'workspace:dashboard' %}{% if project %}?project={{ project.pk }}{% endif %}">{% icon 'home' %}<span>Главная</span>
-</a>
-<a class="nav__item {% if page == 'projects' %}nav__item--active{% endif %}" href="{% url 'workspace:projects' %}">{% icon 'projects' %}<span>Мои проекты</span>
-</a>
-{% if project %}<span class="nav__label">Проект</span>
-<a class="nav__item {% if page == 'project' %}nav__item--active{% endif %}" href="{% url 'workspace:project' project.pk %}">{% icon 'info' %}<span>О проекте</span>
-</a>
-<a class="nav__item {% if page == 'stages' %}nav__item--active{% endif %}" href="{% url 'workspace:stages' project.pk %}">{% icon 'stages' %}<span>Этапы ремонта</span>
-</a>
-<a class="nav__item {% if page == 'tasks' %}nav__item--active{% endif %}" href="{% url 'workspace:tasks' project.pk %}">{% icon 'tasks' %}<span>{% if is_manager %}Задачи{% else %}Мои задачи{% endif %}</span>
-</a>{% if is_manager %}<a class="nav__item {% if page == 'acceptance' %}nav__item--active{% endif %}" href="{% url 'workspace:acceptance' project.pk %}">{% icon 'check' %}<span>Приёмка работ</span>
-</a>{% endif %}<a class="nav__item {% if page == 'remarks' %}nav__item--active{% endif %}" href="{% url 'workspace:remarks' project.pk %}">{% icon 'flag' %}<span>Замечания</span>
-</a>
-<a class="nav__item {% if page == 'members' %}nav__item--active{% endif %}" href="{% url 'workspace:members' project.pk %}">{% icon 'users' %}<span>Участники проекта</span>
-</a>{% if is_manager %}<a class="nav__item {% if page == 'history' %}nav__item--active{% endif %}" href="{% url 'workspace:history' project.pk %}">{% icon 'history' %}<span>История изменений</span>
-</a>{% endif %}{% endif %}
+<a class="nav__item {% if page == 'dashboard' %}nav__item--active{% endif %}" href="{% url 'workspace:dashboard' %}{% if project %}?project={{ project.pk }}{% endif %}">{% icon 'home' %}<span>Главная</span>{% if incoming_count %}<b class="nav__badge" title="Приглашения для вас">{{ incoming_count }}</b>{% endif %}</a>
+<a class="nav__item {% if page == 'projects' %}nav__item--active{% endif %}" href="{% url 'workspace:projects' %}">{% icon 'projects' %}<span>Мои проекты</span></a>
+{% if project %}<span class="nav__label">Работы</span>
+<a class="nav__item {% if page == 'project' %}nav__item--active{% endif %}" href="{% url 'workspace:project' project.pk %}">{% icon 'info' %}<span>О проекте</span></a>
+<a class="nav__item {% if page == 'stages' %}nav__item--active{% endif %}" href="{% url 'workspace:stages' project.pk %}">{% icon 'stages' %}<span>Этапы ремонта</span></a>
+<a class="nav__item {% if page == 'tasks' %}nav__item--active{% endif %}" href="{% url 'workspace:tasks' project.pk %}">{% icon 'tasks' %}<span>{% if nav_manager %}Задачи{% else %}Мои задачи{% endif %}</span></a>
+<a class="nav__item {% if page == 'remarks' %}nav__item--active{% endif %}" href="{% url 'workspace:remarks' project.pk %}">{% icon 'flag' %}<span>Замечания</span></a>
+<a class="nav__item {% if page == 'members' %}nav__item--active{% endif %}" href="{% url 'workspace:members' project.pk %}">{% icon 'users' %}<span>Участники</span></a>
+{% if nav_manager %}<span class="nav__label">Деньги и согласования</span>
+<a class="nav__item {% if page == 'estimate' %}nav__item--active{% endif %}" href="{% url 'workspace:estimate' project.pk %}">{% icon 'money' %}<span>Смета</span></a>
+<a class="nav__item {% if page == 'calculations' %}nav__item--active{% endif %}" href="{% url 'workspace:calculations' project.pk %}">{% icon 'calc' %}<span>Предварительный расчёт</span></a>
+<a class="nav__item {% if page == 'approvals' %}nav__item--active{% endif %}" href="{% url 'workspace:approvals' project.pk %}">{% icon 'stamp' %}<span>Согласования</span></a>
+<a class="nav__item {% if page == 'acceptance' %}nav__item--active{% endif %}" href="{% url 'workspace:acceptance' project.pk %}">{% icon 'check' %}<span>Приёмка работ</span></a>
+<a class="nav__item {% if page == 'history' %}nav__item--active{% endif %}" href="{% url 'workspace:history' project.pk %}">{% icon 'history' %}<span>История изменений</span></a>{% endif %}{% endif %}
 </nav>
 <div class="sidebar__bottom">
-<a class="nav__item" href="{% url 'accounts:profile' %}">{% icon 'users' %}<span>Мой профиль</span>
-</a>
-<div class="profile-mini">
-<span class="avatar">{{ user|initials }}</span>
-<span>
-<strong>{{ user|display_name }}</strong>
-<small>{{ membership.get_role_display|default:'Личный кабинет' }}</small>
-</span>
-</div>
-<form method="post" action="{% url 'accounts:logout' %}">{% csrf_token %}<button class="nav__item logout-button" type="submit">Выйти из аккаунта {% icon 'arrow' %}</button>
-</form>
+<a class="nav__item {% if page == 'profile' %}nav__item--active{% endif %}" href="{% url 'accounts:profile' %}">{% icon 'user' %}<span>Мой профиль</span></a>
+<div class="profile-mini"><span class="avatar">{{ user|initials }}</span><span><strong>{{ user|display_name }}</strong><small>{{ membership.get_role_display|default:'Личный кабинет' }}</small></span></div>
+<form method="post" action="{% url 'accounts:logout' %}">{% csrf_token %}<button class="nav__item logout-button" type="submit">{% icon 'logout' %}<span>Выйти</span></button></form>
 </div>
 </aside>
-<button class="mobile-overlay" data-menu-close aria-label="Закрыть меню" hidden>
-</button>
+<button class="mobile-overlay" data-menu-close aria-label="Закрыть меню" hidden></button>
 <div class="shell">
 <header class="header">
 <button class="icon-button mobile-menu" data-menu-open aria-label="Открыть меню" aria-controls="sidebar" aria-expanded="false">{% icon 'menu' %}</button>
-<div class="header__title">
-<span>Контроль ремонта квартиры</span>
-<strong>{{ project.name|default:'Рабочее пространство' }}</strong>
-</div>
-<div class="header__right">{% if membership %}<span class="badge badge--blue">{{ membership.get_role_display }}</span>{% endif %}<span class="header-date">{{ today|date:'d E Y' }}</span>
-<span class="avatar">{{ user|initials }}</span>
-</div>
+<div class="header__title"><span>{% if project %}Проект № {{ project.pk }}{% else %}Контроль ремонта квартиры{% endif %}</span><strong>{{ project.name|default:'Рабочее пространство' }}</strong></div>
+{% if project %}<form class="header-search" method="get" action="{% url 'workspace:search' project.pk %}" role="search">{% icon 'search' %}<input type="search" name="q" value="{{ query|default:'' }}" placeholder="Поиск по проекту: задачи, этапы, смета…" aria-label="Поиск по проекту"></form>{% endif %}
+<div class="header__right">{% if membership %}<span class="badge badge--blue">{{ membership.get_role_display }}</span>{% endif %}<span class="header-date">{{ today|date:'d E Y' }}</span></div>
 </header>
-<main id="content">{% if messages %}<div class="messages" aria-live="polite">{% for message in messages %}<div class="notice notice--{{ message.tags }}">{{ message }}</div>{% endfor %}</div>{% endif %}{% block content %}{% endblock %}<footer class="workspace-footer">Контроль ремонта квартиры <span>Команда · Этапы · Задачи · Приёмка</span>
-</footer>
+<main id="content">{% if is_archived %}<div class="notice notice--warning archive-banner">Проект «{{ project.name }}» в архиве — только просмотр.{% if membership.role == 'customer' %} Вернуть его можно на странице «О проекте».{% endif %}</div>{% endif %}{% if messages %}<div class="messages" aria-live="polite">{% for message in messages %}<div class="notice notice--{{ message.tags }}">{{ message }}</div>{% endfor %}</div>{% endif %}{% block content %}{% endblock %}
+<footer class="workspace-footer"><span>Контроль ремонта квартиры</span><span>Этапы · Задачи · Смета · Приёмка</span></footer>
 </main>
 </div>
 </div>
+{% if unit_options %}<datalist id="unit-options">{% for unit in unit_options %}<option value="{{ unit }}">{% endfor %}</datalist>{% endif %}
 </body>
 </html>

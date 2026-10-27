@@ -32,6 +32,9 @@ class Project(models.Model):
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="created_projects")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    # Archive instead of deleting a project that already has work records (ТЗ 4.12: отмена с указанием причины).
+    archived_at = models.DateTimeField(null=True, blank=True)
+    archive_reason = models.TextField(blank=True)
 
     class Meta:
         ordering = ["id"]
@@ -45,6 +48,10 @@ class Project(models.Model):
     def __str__(self):
         return self.name
 
+    @property
+    def is_archived(self):
+        return self.archived_at is not None
+
 
 class ProjectMember(models.Model):
     class Role(models.TextChoices):
@@ -56,13 +63,17 @@ class ProjectMember(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="project_memberships")
     role = models.CharField(max_length=16, choices=Role.choices)
     joined_at = models.DateTimeField(auto_now_add=True)
+    # A removed member keeps the row so finished tasks, stages and history stay attributed to them.
+    is_active = models.BooleanField(default=True)
+    removed_at = models.DateTimeField(null=True, blank=True)
+    removed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True, related_name="removed_memberships")
 
     class Meta:
         ordering = ["id"]
         constraints = [
             models.UniqueConstraint(fields=["project", "user"], name="unique_project_member"),
-            models.UniqueConstraint(fields=["project"], condition=Q(role="customer"), name="one_customer_per_project"),
-            models.UniqueConstraint(fields=["project"], condition=Q(role="foreman"), name="one_foreman_per_project"),
+            models.UniqueConstraint(fields=["project"], condition=Q(role="customer", is_active=True), name="one_active_customer_per_project"),
+            models.UniqueConstraint(fields=["project"], condition=Q(role="foreman", is_active=True), name="one_active_foreman_per_project"),
             models.CheckConstraint(condition=Q(role__in=["customer", "foreman", "executor"]), name="valid_member_role"),
         ]
 
@@ -72,6 +83,7 @@ class ProjectInvitation(models.Model):
         PENDING = "pending", "Ожидает"
         ACCEPTED = "accepted", "Принято"
         CANCELLED = "cancelled", "Отменено"
+        DECLINED = "declined", "Отклонено"
         EXPIRED = "expired", "Истекло"
 
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="invitations")

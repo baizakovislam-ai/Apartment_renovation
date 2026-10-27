@@ -5,6 +5,8 @@ from django.db import models
 from django.db.models import Q
 from django.utils import timezone
 
+from apps.repairs.models import photo_upload_path, private_storage
+
 
 class Remark(models.Model):
     class Status(models.TextChoices):
@@ -25,6 +27,8 @@ class Remark(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     closed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True, related_name="closed_remarks")
     closed_at = models.DateTimeField(null=True, blank=True)
+    withdrawn = models.BooleanField(default=False)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ["due_date", "id"]
@@ -68,3 +72,20 @@ class StageDecision(models.Model):
 
     class Meta:
         ordering = ["-created_at", "-id"]
+
+
+class RemarkPhoto(models.Model):
+    """Photo of a defect (on creation) or of its fix/reply; served only through an access-checked view."""
+
+    remark = models.ForeignKey(Remark, on_delete=models.CASCADE, related_name="photos")
+    comment = models.ForeignKey(RemarkComment, on_delete=models.CASCADE, null=True, blank=True, related_name="photos")
+    file = models.FileField(upload_to=photo_upload_path, storage=private_storage, max_length=255)
+    content_type = models.CharField(max_length=32)
+    width = models.PositiveIntegerField()
+    height = models.PositiveIntegerField()
+    size = models.PositiveIntegerField()
+    uploaded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="remark_photos")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["id"]

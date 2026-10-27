@@ -1,0 +1,10 @@
+{% load workspace_ui %}{% if incoming %}<section class="card incoming-card" aria-label="Приглашения для вас">
+<div class="card__head"><div><span class="eyebrow">Вас пригласили</span><h2>Приглашения в проекты</h2></div><span class="counter">{{ incoming|length }}</span></div>
+{% for invitation in incoming %}<div class="incoming-row">
+<div><strong>{{ invitation.project.name }}</strong><small>{{ invitation.get_role_display }} · пригласил(а) {{ invitation.invited_by|display_name }} · до {{ invitation.expires_at|date:'d.m.Y' }}</small></div>
+<form method="post" action="{% url 'workspace:accept' invitation.token %}" data-once>{% csrf_token %}
+<button class="button button--primary" name="decision" value="accept" type="submit">{% icon 'check' %} Принять</button>
+<button class="button button--ghost" name="decision" value="decline" type="submit">Отклонить</button>
+</form>
+</div>{% endfor %}
+</section>{% endif %}

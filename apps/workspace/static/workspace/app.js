@@ -42,3 +42,12 @@ document.querySelectorAll("form[data-once]").forEach(form => form.addEventListen
   }
   setTimeout(() => form.querySelectorAll("button[type=submit]").forEach(button => button.disabled = true), 0);
 }));
+// «Подставить площадь в объём» в предварительном расчёте.
+document.querySelectorAll("[data-fill-volume]").forEach(button => button.addEventListener("click", () => {
+  const input = button.closest("form")?.querySelector("input[name=volume]");
+  if (!input) return;
+  input.value = button.dataset.fillVolume;
+  const unit = button.closest("form").querySelector("input[name=unit]");
+  if (unit && !unit.value) unit.value = "м²";
+  input.focus();
+}));

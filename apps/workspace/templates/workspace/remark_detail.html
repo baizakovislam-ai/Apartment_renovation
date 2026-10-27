@@ -1,0 +1,59 @@
+{% extends 'workspace/base.html' %}{% load workspace_ui %}{% block title %}Замечание № {{ remark.pk }}{% endblock %}{% block content %}<a class="back-link" href="{% url 'workspace:remarks' project.pk %}">← Ко всем замечаниям</a>
+<div class="page-title">
+<div>
+<span class="eyebrow">Замечание № {{ remark.pk }} · {{ remark.stage.name }}{% if remark.task %} · <a href="{% url 'workspace:task' project.pk remark.task.pk %}">{{ remark.task.name }}</a>{% endif %}</span>
+<h1 class="remark-title">{{ remark.description|linebreaksbr }}</h1>
+<p><span class="badge badge--{% if remark.withdrawn %}gray{% else %}{{ remark.status|status_tone }}{% endif %}"><span class="badge__dot"></span>{% if remark.withdrawn %}Снято{% else %}{{ remark.get_status_display }}{% endif %}</span>{% if remark.is_overdue %} <span class="badge badge--red">Срок прошёл</span>{% endif %}</p>
+</div>{% if can_judge and remark.status == 'open' %}<a class="button button--secondary" href="{% url 'workspace:remark-edit' project.pk remark.pk %}">{% icon 'edit' %} Редактировать</a>{% endif %}</div>
+<div class="detail-layout">
+<div class="stack">
+<section class="card">
+<dl class="facts">
+<div><dt>Кто устраняет</dt><dd><span class="person"><span class="avatar avatar--teal">{{ remark.responsible.user|initials }}</span>{{ remark.responsible.user|display_name }}</span></dd></div>
+<div><dt>Срок устранения</dt><dd class="{% if remark.is_overdue %}overdue{% endif %}">{{ remark.due_date|date:'d E Y' }}</dd></div>
+<div><dt>Автор</dt><dd>{{ remark.created_by|display_name }}, {{ remark.created_at|date:'d.m.Y H:i' }}</dd></div>
+<div><dt>Этап</dt><dd>{{ remark.stage.name }} · {{ remark.stage.get_status_display }}</dd></div>
+{% if remark.closed_at %}<div><dt>{% if remark.withdrawn %}Снято{% else %}Закрыто{% endif %}</dt><dd>{{ remark.closed_by|display_name }}, {{ remark.closed_at|date:'d.m.Y H:i' }}</dd></div>{% endif %}
+</dl>
+{% if defect_photos %}<h3 class="subhead">Фото дефекта</h3><div class="photo-grid">{% for photo in defect_photos %}<a href="{% url 'remark-photo-file' photo.pk %}" target="_blank" rel="noopener"><img src="{% url 'remark-photo-file' photo.pk %}" alt="Фото к замечанию № {{ remark.pk }}" loading="lazy"></a>{% endfor %}</div>{% endif %}
+</section>
+<section class="card" id="thread">
+<div class="card__head"><div><span class="eyebrow">Обсуждение</span><h2>Ответы и действия</h2></div><span class="counter">{{ comments|length }}</span></div>
+{% for comment in comments %}<div class="thread__item thread__item--{{ comment.action|default:'reply' }}"><span class="avatar">{{ comment.author|initials }}</span><div>
+<strong>{{ comment.author|display_name }}</strong> <small>{{ comment.created_at|date:'d.m.Y H:i' }}{% if comment.action == 'fix' %} · сообщил(а) об устранении{% elif comment.action == 'reopen' %} · вернул(а) на доработку{% elif comment.action == 'close' %} · подтвердил(а) устранение{% elif comment.action == 'withdraw' %} · снял(а) замечание{% endif %}</small>
+{% if comment.text %}<p>{{ comment.text|linebreaksbr }}</p>{% endif %}
+{% if comment.photos.all %}<div class="photo-grid">{% for photo in comment.photos.all %}<a href="{% url 'remark-photo-file' photo.pk %}" target="_blank" rel="noopener"><img src="{% url 'remark-photo-file' photo.pk %}" alt="Фото к ответу" loading="lazy"></a>{% endfor %}</div>{% endif %}
+</div></div>{% empty %}<p class="muted-text">Ответов пока нет.</p>{% endfor %}
+{% if remark.status != 'closed' and not is_archived %}<form class="reply-form" method="post" action="{% url 'workspace:remark-action' project.pk remark.pk %}" enctype="multipart/form-data" data-once>{% csrf_token %}
+<input type="hidden" name="version" value="{{ remark.version }}">
+<div class="field"><label for="remark-text">Комментарий</label><textarea id="remark-text" name="text" rows="3" placeholder="Ответ, уточнение или что сделано"></textarea></div>
+<div class="field"><label for="remark-images">Фото (необязательно)</label><input id="remark-images" type="file" name="images" accept="image/jpeg,image/png,image/webp" multiple><div class="help">Например, фото устранённого дефекта. JPEG, PNG, WebP.</div></div>
+<div class="card-actions">
+<button class="button button--secondary" name="action" value="reply" type="submit">Ответить</button>
+{% if can_fix and remark.status == 'open' %}<button class="button button--primary" name="action" value="fix" type="submit">{% icon 'check' %} Устранено</button>{% endif %}
+</div>
+</form>{% endif %}
+</section>
+</div>
+<aside class="stack">
+<section class="card decision-card">
+<span class="eyebrow">Что дальше</span>
+{% if remark.status == 'open' %}<p class="muted-text">{% if can_fix %}Устраните дефект, приложите фото и нажмите «Устранено».{% else %}Ждём, когда {{ remark.responsible.user|display_name }} устранит дефект.{% endif %}</p>{% endif %}
+{% if remark.status == 'fixed' %}{% if can_judge %}<p class="muted-text">Исполнитель сообщил об устранении. Проверьте на месте.</p>
+<form method="post" action="{% url 'workspace:remark-action' project.pk remark.pk %}" data-once>{% csrf_token %}<input type="hidden" name="version" value="{{ remark.version }}"><button class="button button--primary" name="action" value="close" type="submit">{% icon 'check' %} Подтвердить устранение</button></form>
+<form method="post" action="{% url 'workspace:remark-action' project.pk remark.pk %}" data-once>{% csrf_token %}<input type="hidden" name="version" value="{{ remark.version }}">
+<div class="field"><label for="reopen-text">Что не устранено</label><textarea id="reopen-text" name="text" rows="2" required></textarea></div>
+<button class="button button--danger" name="action" value="reopen" type="submit">Вернуть на доработку</button></form>
+{% else %}<p class="muted-text">Устранение проверит {{ remark.created_by|display_name }}.</p>{% endif %}{% endif %}
+{% if remark.status == 'closed' %}<p class="success-text">{% if remark.withdrawn %}Замечание снято.{% else %}Устранение подтверждено, замечание закрыто.{% endif %}</p>{% endif %}
+{% if can_judge and remark.status != 'closed' %}<details class="inline-details"><summary class="button button--ghost">Снять замечание</summary>
+<form method="post" action="{% url 'workspace:remark-action' project.pk remark.pk %}" data-once>{% csrf_token %}<input type="hidden" name="version" value="{{ remark.version }}">
+<div class="field"><label for="withdraw-text">Почему снимается</label><textarea id="withdraw-text" name="text" rows="2" required placeholder="Например, создано по ошибке"></textarea></div>
+<button class="button button--secondary" name="action" value="withdraw" type="submit">Снять</button></form></details>{% endif %}
+</section>
+<section class="card">
+<span class="eyebrow">История замечания</span>
+{% for event in events %}<div class="mini-row"><strong>{{ event.action|event_label }}</strong><small>{{ event.actor|display_name }} · {{ event.created_at|date:'d.m.Y H:i' }}</small></div>{% empty %}<p class="muted-text">Событий нет.</p>{% endfor %}
+</section>
+</aside>
+</div>{% endblock %}

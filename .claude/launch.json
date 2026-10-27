@@ -4,7 +4,12 @@
     {
       "name": "django",
       "runtimeExecutable": "venv/Scripts/python.exe",
-      "runtimeArgs": ["manage.py", "runserver", "127.0.0.1:8002", "--noreload"],
+      "runtimeArgs": [
+        "manage.py",
+        "runserver",
+        "127.0.0.1:8002",
+        "--noreload"
+      ],
       "port": 8002
     }
   ]
