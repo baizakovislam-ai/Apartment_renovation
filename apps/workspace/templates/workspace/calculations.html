@@ -1,0 +1,24 @@
+{% extends 'workspace/base.html' %}{% load workspace_ui %}{% block title %}Предварительный расчёт{% endblock %}{% block content %}<div class="page-title">
+<div>
+<span class="eyebrow">Деньги и согласования</span>
+<h1>Предварительный расчёт</h1>
+<p>Быстро прикиньте стоимость ремонта: работа, объём, единица и цена. Можно сделать несколько вариантов и перенести лучший в смету.</p>
+</div>
+<a class="button button--secondary" href="{% url 'workspace:estimate' project.pk %}">{% icon 'money' %} Перейти к смете</a>
+</div>
+<div class="calc-grid">
+{% for calculation in calculations %}<a class="card calc-card" href="{% url 'workspace:calculation' project.pk calculation.pk %}">
+<span class="eyebrow">{{ calculation.items.all|length }} позиц. · обновлён {{ calculation.updated_at|date:'d.m.Y' }}</span>
+<h2>{{ calculation.name }}</h2>
+<span class="calc-card__total">{{ calculation.total|money }}</span>
+{% if calculation.note %}<p class="muted-text">{{ calculation.note|truncatechars:110 }}</p>{% endif %}
+<small class="muted-text">Автор: {{ calculation.created_by|display_name }}</small>
+</a>{% endfor %}
+<section class="card">
+<span class="eyebrow">Новый вариант</span>
+<h2 style="margin:4px 0 14px">Создать расчёт</h2>
+<form method="post" novalidate data-once>{% csrf_token %}{% if form.non_field_errors %}<div class="notice notice--error">{{ form.non_field_errors }}</div>{% endif %}{% for field in form %}{% include 'accounts/_field.html' %}{% endfor %}<button class="button button--primary" type="submit">{% icon 'plus' %} Создать</button></form>
+</section>
+</div>
+{% if not calculations %}<p class="muted-text" style="margin-top:16px">Пример: «Стандартный ремонт» — штукатурка 180 м² по 450 сом, ламинат 52 м² по 1 450 сом… Система сама посчитает стоимость каждой позиции и итог.</p>{% endif %}
+{% endblock %}

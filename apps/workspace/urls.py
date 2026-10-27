@@ -1,5 +1,5 @@
 from django.urls import path
-from . import views, work_views as work
+from . import finance_views as finance, views, work_views as work
 
 app_name = "workspace"
 urlpatterns = [
@@ -18,6 +18,7 @@ urlpatterns = [
     path("projects/<int:project_id>/", work.project_detail, name="project"),
     path("projects/<int:project_id>/edit/", work.project_edit, name="project-edit"),
     path("projects/<int:project_id>/delete/", work.project_delete, name="project-delete"),
+    path("projects/<int:project_id>/archive/", work.project_archive, name="project-archive"),
     path("projects/<int:project_id>/stages/<int:stage_id>/start/", work.stage_start, name="stage-start"),
     path("projects/<int:project_id>/tasks/", work.task_list, name="tasks"),
     path("projects/<int:project_id>/tasks/new/", work.task_form, name="task-create"),
@@ -29,5 +30,23 @@ urlpatterns = [
     path("projects/<int:project_id>/acceptance/", work.acceptance, name="acceptance"),
     path("projects/<int:project_id>/stages/<int:stage_id>/acceptance/", work.stage_acceptance_action, name="stage-acceptance"),
     path("projects/<int:project_id>/remarks/", work.remarks, name="remarks"),
-    path("projects/<int:project_id>/remarks/<int:remark_id>/", work.remark_action, name="remark-action"),
+    path("projects/<int:project_id>/remarks/new/", work.remark_create, name="remark-create"),
+    path("projects/<int:project_id>/remarks/<int:remark_id>/", work.remark_detail, name="remark"),
+    path("projects/<int:project_id>/remarks/<int:remark_id>/edit/", work.remark_edit, name="remark-edit"),
+    path("projects/<int:project_id>/remarks/<int:remark_id>/action/", work.remark_action, name="remark-action"),
+    path("projects/<int:project_id>/estimate/", finance.estimate_page, name="estimate"),
+    path("projects/<int:project_id>/estimate/new/", finance.estimate_create, name="estimate-create"),
+    path("projects/<int:project_id>/estimate/<int:estimate_id>/", finance.estimate_page, name="estimate-version"),
+    path("projects/<int:project_id>/estimate/<int:estimate_id>/lines/", finance.estimate_line_add, name="estimate-line-add"),
+    path("projects/<int:project_id>/estimate/<int:estimate_id>/action/", finance.estimate_action, name="estimate-action"),
+    path("projects/<int:project_id>/estimate/lines/<int:line_id>/edit/", finance.estimate_line_edit, name="estimate-line-edit"),
+    path("projects/<int:project_id>/estimate/lines/<int:line_id>/delete/", finance.estimate_line_delete, name="estimate-line-delete"),
+    path("projects/<int:project_id>/start/", finance.start_works, name="start-works"),
+    path("projects/<int:project_id>/calculations/", finance.calculation_list, name="calculations"),
+    path("projects/<int:project_id>/calculations/<int:calculation_id>/", finance.calculation_detail, name="calculation"),
+    path("projects/<int:project_id>/calculations/<int:calculation_id>/update/", finance.calculation_update, name="calculation-update"),
+    path("projects/<int:project_id>/calculations/items/<int:item_id>/edit/", finance.calculation_item_edit, name="calculation-item-edit"),
+    path("projects/<int:project_id>/calculations/items/<int:item_id>/delete/", finance.calculation_item_delete, name="calculation-item-delete"),
+    path("projects/<int:project_id>/approvals/", finance.approvals, name="approvals"),
+    path("projects/<int:project_id>/search/", finance.project_search, name="search"),
 ]

@@ -3,15 +3,18 @@
 <div>
 <span class="eyebrow">Ваше рабочее пространство</span>
 <h1>Здравствуйте, {{ user.get_short_name }}</h1>
-<p>{% if project %}Следите за командой и сроками проекта «{{ project.name }}».{% else %}Создайте первый проект или примите приглашение в команду.{% endif %}</p>
+<p>{% if project %}Следите за командой и сроками проекта «{{ project.name }}».{% elif incoming %}Примите приглашение ниже или создайте свой проект.{% else %}Создайте первый проект или примите приглашение в команду.{% endif %}</p>
 </div>
 <a class="button button--primary" href="{% url 'workspace:project-create' %}">{% icon 'plus' %} Новый проект</a>
 </div>
+{% include 'workspace/_incoming.html' %}
 {% if project %}<form class="project-picker" method="get">
 <label for="current-project">Открытый проект</label>
 <select id="current-project" name="project">{% for item in projects %}<option value="{{ item.pk }}" {% if item.pk == project.pk %}selected{% endif %}>{{ item.name }}</option>{% endfor %}</select>
 <button class="button button--secondary" type="submit">Открыть</button>
 </form>
+{% if attention %}<section class="card attention"><div class="card__head"><div><span class="eyebrow">Требует вашего внимания</span><h2>Что сделать сейчас</h2></div><span class="counter">{{ attention|length }}</span></div>
+{% for icon_name, tone, title, hint, url in attention %}<a class="attention__item" href="{{ url }}"><span class="attention__icon attention__icon--{{ tone }}">{% icon icon_name %}</span><span><strong>{{ title }}</strong><small>{{ hint }}</small></span>{% icon 'arrow' %}</a>{% endfor %}</section>{% endif %}
 {% include 'workspace/_progress.html' %}
 <div class="metrics">
 <div class="metric">
@@ -29,14 +32,14 @@
 <div class="metric">
 <div class="metric__icon metric__icon--green">{% icon 'check' %}</div>
 <span>На проверке</span>
-<strong>{{ progress.tasks_review }}</strong>
-<small>Задачи ждут подтверждения</small>
+<strong>{{ review_count }}</strong>
+<small>{% if is_manager %}Задачи ждут подтверждения{% else %}Ваши задачи ждут проверки{% endif %}</small>
 </div>
 <div class="metric">
 <div class="metric__icon metric__icon--orange">{% icon 'alert' %}</div>
 <span>Просроченные задачи</span>
-<strong>{{ progress.tasks_overdue }}</strong>
-<small>Требуют внимания к срокам</small>
+<strong>{{ overdue_count }}</strong>
+<small>{% if is_manager %}Требуют внимания к срокам{% else %}Ваши задачи с прошедшим сроком{% endif %}</small>
 </div>
 </div>
 <div class="dashboard-grid">

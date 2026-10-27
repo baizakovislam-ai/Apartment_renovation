@@ -1,12 +1,14 @@
 """Stage acceptance and remarks (ТЗ FR07, scenario 4.2)."""
+from django.conf import settings
 from django.utils import timezone
 from rest_framework.exceptions import PermissionDenied, ValidationError
 
 from apps.projects.models import ProjectMember
-from apps.projects.permissions import require_customer, require_member
+from apps.projects.permissions import require_customer, require_manager, require_member
 from apps.projects.services import atomic_operation, lock_project, record_event
+from apps.repairs.images import process_photo
 from apps.repairs.models import Stage, Task
-from .models import Remark, RemarkComment, StageDecision
+from .models import Remark, RemarkComment, RemarkPhoto, StageDecision
 
 UNRESOLVED = [Remark.Status.OPEN, Remark.Status.FIXED]
 REMARK_STALE = "Замечание уже изменил другой пользователь. Обновите страницу."
@@ -19,6 +21,8 @@ def lock_stage(stage):
 def acceptance_blockers(stage):
     """Reasons a stage cannot go to (or pass) acceptance yet."""
     reasons = []
+    if not stage.tasks.exists():
+        reasons.append("В этапе нет ни одной задачи — нечего принимать")
     unfinished = stage.tasks.exclude(status=Task.Status.DONE).count()
     if unfinished:
         reasons.append(f"Не выполнено задач: {unfinished}")
@@ -81,6 +85,17 @@ def return_stage(*, stage, actor, reason):
     decide(stage, actor, StageDecision.Action.RETURN, reason)
     return stage
 
+# ---------- Remarks ----------
+#
+# Who does what:
+#   create  — customer (to the foreman or an executor) or foreman (to an executor);
+#   edit / withdraw — the author or the customer, while the remark is open;
+#   reply   — anyone who can see the remark;
+#   fix     — the responsible person or the foreman;
+#   close / reopen (confirm or reject the fix) — the author or the customer (ТЗ: заказчик подтверждает устранение).
+
+REMARK_STAGE_STATUSES = (Stage.Status.IN_PROGRESS, Stage.Status.COMPLETED, Stage.Status.PENDING_ACCEPTANCE)
+
 
 def visible_remarks(project, user):
     member = require_member(project, user)
@@ -97,26 +112,55 @@ def require_remark_access(remark, user):
     return member
 
 
+def can_judge(remark, member):
+    """The author or the customer confirms, rejects, edits or withdraws a remark."""
+    return member.role == ProjectMember.Role.CUSTOMER or remark.created_by_id == member.user_id
+
+
+def check_remark_version(remark, version):
+    if version is None or str(version) == "" or int(version) != remark.version:
+        raise ValidationError({"version": REMARK_STALE})
+
+
+def save_photos(remark, actor, images, comment=None):
+    images = [image for image in (images or []) if image]
+    if len(images) > settings.PHOTO_MAX_FILES:
+        raise ValidationError({"images": f"Можно приложить не больше {settings.PHOTO_MAX_FILES} фотографий."})
+    processed = [process_photo(image) for image in images]
+    for content, content_type, width, height, size in processed:
+        RemarkPhoto.objects.create(remark=remark, comment=comment, file=content, content_type=content_type,
+                                   width=width, height=height, size=size, uploaded_by=actor)
+    return len(processed)
+
+
+def validate_responsible(project, author, responsible):
+    if responsible is None or responsible.project_id != project.pk or not responsible.is_active:
+        raise ValidationError({"responsible": "Ответственный должен быть действующим участником этого проекта."})
+    if responsible.role == ProjectMember.Role.CUSTOMER:
+        raise ValidationError({"responsible": "Ответственный — прораб или исполнитель."})
+    if author.role == ProjectMember.Role.FOREMAN and responsible.role != ProjectMember.Role.EXECUTOR:
+        raise ValidationError({"responsible": "Прораб оставляет замечания исполнителям."})
+
+
 @atomic_operation
-def create_remark(*, project, actor, stage, description, responsible, due_date, task=None, request_id=None):
+def create_remark(*, project, actor, stage, description, responsible, due_date, task=None, request_id=None, images=None):
     project = lock_project(project)
-    require_customer(project, actor)
+    author = require_manager(project, actor)
     if request_id:
         existing = Remark.objects.filter(request_id=request_id).first()
         if existing:
             if existing.project_id != project.pk or existing.created_by_id != actor.pk:
                 raise ValidationError("Повторный идентификатор запроса.")
             return existing
-    if stage.project_id != project.pk:
+    if stage is None or stage.project_id != project.pk:
         raise ValidationError({"stage": "Этап должен относиться к этому проекту."})
     stage = lock_stage(stage)
-    if stage.status not in (Stage.Status.IN_PROGRESS, Stage.Status.COMPLETED, Stage.Status.PENDING_ACCEPTANCE):
-        raise ValidationError({"stage": "Замечания оставляют к этапу в работе или на приёмке."})
+    if stage.status not in REMARK_STAGE_STATUSES:
+        raise ValidationError({"stage": "Замечания оставляют к этапу, по которому идут работы или приёмка. Этот этап ещё не начат или уже закрыт."})
     if task is not None and task.stage_id != stage.pk:
         raise ValidationError({"task": "Задача должна относиться к выбранному этапу."})
-    if responsible.project_id != project.pk or responsible.role == ProjectMember.Role.CUSTOMER:
-        raise ValidationError({"responsible": "Ответственный — прораб или исполнитель этого проекта."})
-    if due_date < timezone.localdate():
+    validate_responsible(project, author, responsible)
+    if due_date is None or due_date < timezone.localdate():
         raise ValidationError({"due_date": "Срок устранения не может быть в прошлом."})
     description = (description or "").strip()
     if not description:
@@ -124,7 +168,8 @@ def create_remark(*, project, actor, stage, description, responsible, due_date, 
     extra = {"request_id": request_id} if request_id else {}
     remark = Remark.objects.create(project=project, stage=stage, task=task, description=description, responsible=responsible,
                                    due_date=due_date, created_by=actor, **extra)
-    record_event(project, actor, "remark.created", remark_id=remark.pk, stage_id=stage.pk, name=stage.name)
+    photos = save_photos(remark, actor, images)
+    record_event(project, actor, "remark.created", remark_id=remark.pk, stage_id=stage.pk, name=stage.name, photos=photos)
     if stage.status == Stage.Status.PENDING_ACCEPTANCE:
         # A remark during acceptance sends the stage back to work automatically.
         stage.status = Stage.Status.IN_PROGRESS
@@ -134,22 +179,55 @@ def create_remark(*, project, actor, stage, description, responsible, due_date, 
 
 
 @atomic_operation
-def remark_action(*, remark, actor, action, version=None, text=""):
+def update_remark(*, remark, actor, version, **data):
+    project = lock_project(remark.project)
+    member = require_remark_access(remark, actor)
+    remark = Remark.objects.select_for_update().get(pk=remark.pk)
+    check_remark_version(remark, version)
+    if not can_judge(remark, member):
+        raise PermissionDenied("Изменить замечание может его автор или заказчик.")
+    if remark.status != Remark.Status.OPEN:
+        raise ValidationError("Изменять можно только открытое замечание.")
+    unknown = set(data) - {"description", "responsible", "due_date"}
+    if unknown:
+        raise ValidationError(f"Неизвестные поля: {', '.join(sorted(unknown))}.")
+    author = ProjectMember.objects.filter(project=project, user=remark.created_by).first() or member
+    if "responsible" in data and data["responsible"] != remark.responsible:
+        validate_responsible(project, author, data["responsible"])
+    if "due_date" in data and data["due_date"] != remark.due_date and data["due_date"] < timezone.localdate():
+        raise ValidationError({"due_date": "Срок устранения не может быть в прошлом."})
+    if "description" in data:
+        data["description"] = (data["description"] or "").strip()
+        if not data["description"]:
+            raise ValidationError({"description": "Опишите замечание."})
+    changed = {key: value for key, value in data.items() if getattr(remark, key) != value}
+    if not changed:
+        return remark
+    for key, value in changed.items():
+        setattr(remark, key, value)
+    remark.version += 1
+    remark.save()
+    record_event(project, actor, "remark.updated", remark_id=remark.pk, fields=sorted(changed))
+    return remark
+
+
+@atomic_operation
+def remark_action(*, remark, actor, action, version=None, text="", images=None):
     project = lock_project(remark.project)
     member = require_remark_access(remark, actor)
     remark = Remark.objects.select_for_update().get(pk=remark.pk)
     text = (text or "").strip()
-    is_customer = member.role == ProjectMember.Role.CUSTOMER
+    images = [image for image in (images or []) if image]
     if action == "reply":
-        if not text:
-            raise ValidationError({"text": "Введите текст ответа."})
+        if not text and not images:
+            raise ValidationError({"text": "Напишите ответ или приложите фото."})
         if remark.status == Remark.Status.CLOSED:
             raise ValidationError("Замечание закрыто.")
-        RemarkComment.objects.create(remark=remark, author=actor, text=text, action="reply")
+        comment = RemarkComment.objects.create(remark=remark, author=actor, text=text, action="reply")
+        save_photos(remark, actor, images, comment)
         record_event(project, actor, "remark.reply", remark_id=remark.pk)
         return remark
-    if version is None or int(version) != remark.version:
-        raise ValidationError({"version": REMARK_STALE})
+    check_remark_version(remark, version)
     if action == "fix":
         if remark.responsible_id != member.pk and member.role != ProjectMember.Role.FOREMAN:
             raise PermissionDenied("Сообщить об устранении может ответственный или прораб.")
@@ -157,26 +235,36 @@ def remark_action(*, remark, actor, action, version=None, text=""):
             raise ValidationError("Замечание не открыто.")
         remark.status = Remark.Status.FIXED
     elif action == "close":
-        if not is_customer:
-            raise PermissionDenied("Закрывает замечание только заказчик.")
-        if remark.status == Remark.Status.CLOSED:
-            raise ValidationError("Замечание уже закрыто.")
+        if not can_judge(remark, member):
+            raise PermissionDenied("Подтвердить устранение может автор замечания или заказчик.")
+        if remark.status != Remark.Status.FIXED:
+            raise ValidationError("Подтвердить можно только замечание, отмеченное как устранённое.")
         remark.status = Remark.Status.CLOSED
-        remark.closed_by = actor
-        remark.closed_at = timezone.now()
+        remark.closed_by, remark.closed_at = actor, timezone.now()
     elif action == "reopen":
-        if not is_customer:
-            raise PermissionDenied("Вернуть замечание может только заказчик.")
+        if not can_judge(remark, member):
+            raise PermissionDenied("Вернуть замечание может автор или заказчик.")
         if remark.status != Remark.Status.FIXED:
             raise ValidationError("Вернуть можно только замечание, отмеченное как устранённое.")
         if not text:
-            raise ValidationError({"text": "Укажите, что не устранено."})
+            raise ValidationError({"text": "Напишите, что не устранено."})
         remark.status = Remark.Status.OPEN
+    elif action == "withdraw":
+        if not can_judge(remark, member):
+            raise PermissionDenied("Снять замечание может его автор или заказчик.")
+        if remark.status == Remark.Status.CLOSED:
+            raise ValidationError("Замечание уже закрыто.")
+        if not text:
+            raise ValidationError({"text": "Укажите, почему замечание снимается."})
+        remark.status = Remark.Status.CLOSED
+        remark.withdrawn = True
+        remark.closed_by, remark.closed_at = actor, timezone.now()
     else:
         raise ValidationError({"action": "Неизвестное действие."})
     remark.version += 1
     remark.save()
-    if text:
-        RemarkComment.objects.create(remark=remark, author=actor, text=text, action=action)
+    if text or images:
+        comment = RemarkComment.objects.create(remark=remark, author=actor, text=text, action=action)
+        save_photos(remark, actor, images, comment)
     record_event(project, actor, f"remark.{action}", remark_id=remark.pk)
     return remark

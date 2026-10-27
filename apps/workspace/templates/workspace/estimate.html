@@ -1,0 +1,98 @@
+{% extends 'workspace/base.html' %}{% load workspace_ui %}{% block title %}Смета{% endblock %}{% block content %}<div class="page-title">
+<div>
+<span class="eyebrow">Деньги и согласования</span>
+<h1>Смета{% if estimate %} <span class="muted-text">версия {{ estimate.number }}</span>{% endif %}</h1>
+<p>{% if not estimate %}Смета — это список работ и материалов с ценами по этапам. Прораб составляет её и отправляет заказчику, заказчик утверждает.{% elif estimate.status == 'draft' %}Черновик: добавляйте строки, затем прораб отправит смету заказчику.{% elif estimate.status == 'pending' %}Смета ждёт решения заказчика. Пока она на согласовании, её нельзя менять.{% elif estimate.status == 'approved' %}Утверждённая смета. Изменения — только через новую версию.{% elif estimate.status == 'rejected' %}Заказчик отклонил эту версию. Создайте новую версию с исправлениями.{% else %}Старая версия: её заменила более новая.{% endif %}</p>
+</div>
+<div class="page-actions">{% if is_manager and not open_estimate %}<form method="post" action="{% url 'workspace:estimate-create' project.pk %}" data-once>{% csrf_token %}<button class="button button--primary" type="submit">{% icon 'plus' %} {% if estimate %}Новая версия{% else %}Создать смету{% endif %}</button></form>{% endif %}
+<a class="button button--secondary" href="{% url 'workspace:calculations' project.pk %}">{% icon 'calc' %} Предварительный расчёт</a></div>
+</div>
+
+{% if estimate %}
+<div class="status-flow" aria-label="Статус сметы">
+<span class="{% if estimate.status == 'draft' %}current{% else %}done{% endif %}">1 · Черновик</span>
+<span class="{% if estimate.status == 'pending' %}current{% elif estimate.status == 'draft' %}{% else %}done{% endif %}">2 · На согласовании</span>
+<span class="{% if estimate.status == 'approved' %}current{% elif estimate.status == 'rejected' %}failed{% elif estimate.status == 'superseded' %}done{% endif %}">3 · {% if estimate.status == 'rejected' %}Отклонена{% else %}Утверждена{% endif %}</span>
+</div>
+
+{% if approved and approved.pk != estimate.pk %}<div class="notice" style="margin-bottom:18px">Действует утверждённая смета — <a href="{% url 'workspace:estimate-version' project.pk approved.pk %}">версия {{ approved.number }} на {{ approved.total|money }}</a>.{% if estimate.status == 'draft' or estimate.status == 'pending' %} Эта версия заменит её после утверждения.{% endif %}</div>{% endif %}
+{% if estimate.status == 'pending' and membership.role == 'customer' and not is_archived %}<section class="card decision-banner">
+<div><span class="eyebrow">Ждёт вашего решения</span><h2>Утвердить смету на {{ summary.total|money }}?</h2>
+<p class="muted-text">Отправил(а) {{ estimate.submitted_by|display_name }}, {{ estimate.submitted_at|date:'d.m.Y H:i' }}.{% if estimate.comment %} Комментарий: «{{ estimate.comment }}»{% endif %}</p></div>
+<div class="decision-banner__actions">
+<form method="post" action="{% url 'workspace:estimate-action' project.pk estimate.pk %}" data-once>{% csrf_token %}<input type="hidden" name="action" value="approve"><button class="button button--success" type="submit">{% icon 'check' %} Утвердить</button></form>
+<details class="inline-details"><summary class="button button--secondary">Отклонить…</summary>
+<form method="post" action="{% url 'workspace:estimate-action' project.pk estimate.pk %}" data-once>{% csrf_token %}<input type="hidden" name="action" value="reject"><div class="field"><label for="banner-reason">Что исправить</label><textarea id="banner-reason" name="reason" rows="2" required></textarea></div><button class="button button--danger" type="submit">Отклонить смету</button></form></details>
+</div>
+</section>{% endif %}
+
+{% if project.status == 'planning' and membership.role == 'customer' and not is_archived %}<section class="card start-card">
+<div><span class="eyebrow">Последний шаг перед работами</span><h2>Запуск работ</h2>
+{% if start_blockers %}<p class="muted-text">Запустить работы можно, когда:</p><ul>{% for reason in start_blockers %}<li>{{ reason|capfirst }}</li>{% endfor %}</ul>
+{% else %}<p class="muted-text">Прораб в команде, смета утверждена. После запуска прораб начнёт этапы, а исполнители — задачи.</p>{% endif %}</div>
+<form method="post" action="{% url 'workspace:start-works' project.pk %}" data-once>{% csrf_token %}<button class="button button--success" type="submit" {% if start_blockers %}disabled{% endif %}>{% icon 'play' %} Запустить работы</button></form>
+</section>{% elif project.status == 'planning' %}<div class="notice notice--warning" style="margin-bottom:18px">Работы ещё не запущены: после утверждения сметы заказчик нажмёт «Запустить работы».</div>{% endif %}
+
+<div class="estimate-hero">
+<div class="metric metric--accent"><div class="metric__icon metric__icon--glass">{% icon 'calc' %}</div><span>Итого по смете</span><strong class="money">{{ summary.total|money }}</strong><small>{{ summary.lines|length }} строк · {{ summary.groups|length }} этап(ов)</small></div>
+<div class="metric"><div class="metric__icon metric__icon--blue">{% icon 'money' %}</div><span>Лимит бюджета</span><strong class="money">{{ budget|money }}</strong><small>Задаёт заказчик в паспорте проекта</small></div>
+<div class="metric"><div class="metric__icon {% if over_budget %}metric__icon--orange{% else %}metric__icon--green{% endif %}">{% icon 'check' %}</div><span>{% if over_budget %}Превышение лимита{% else %}Остаток лимита{% endif %}</span><strong class="money {% if over_budget %}overdue{% endif %}">{% if difference is None %}—{% elif over_budget %}{{ difference|money|cut:'-' }}{% else %}{{ difference|money }}{% endif %}</strong><small>{% if difference is None %}Лимит бюджета не задан{% else %}Бюджет минус смета{% endif %}</small></div>
+<div class="metric"><div class="metric__icon metric__icon--teal">{% icon 'stamp' %}</div><span>Статус</span><strong style="font-size:18px">{{ estimate.get_status_display }}</strong><small>{% if estimate.decided_at %}{{ estimate.decided_by|display_name }}, {{ estimate.decided_at|date:'d.m.Y H:i' }}{% elif estimate.submitted_at %}Отправлена {{ estimate.submitted_at|date:'d.m.Y H:i' }}{% else %}Создана {{ estimate.created_at|date:'d.m.Y' }}{% endif %}</small></div>
+</div>
+
+<div class="estimate-layout">
+<section class="card" id="lines">
+<div class="card__head"><div><span class="eyebrow">Состав сметы</span><h2>Работы и материалы по этапам</h2></div>{% if can_edit %}<span class="badge badge--blue">Можно редактировать</span>{% else %}<span class="badge badge--gray">Только просмотр</span>{% endif %}</div>
+{% if summary.groups %}<div class="table-wrap">
+<table class="data-table">
+<thead><tr><th>Наименование</th><th>Ед.</th><th class="num">Кол-во</th><th class="num">Цена</th><th class="num">Сумма</th>{% if can_edit %}<th></th>{% endif %}</tr></thead>
+<tbody>{% for group in summary.groups %}<tr class="group-row"><td colspan="4">{{ group.stage.name }}</td><td class="num">{{ group.total|money }}</td>{% if can_edit %}<td></td>{% endif %}</tr>
+{% for line in group.lines %}<tr>
+<td><strong>{{ line.name }}</strong><small>{{ line.get_cost_type_display }}</small></td>
+<td>{{ line.unit }}</td>
+<td class="num">{{ line.quantity|normalize }}</td>
+<td class="num">{{ line.price|money }}</td>
+<td class="num"><strong>{{ line.amount|money }}</strong></td>
+{% if can_edit %}<td><div class="row-actions"><a class="button button--ghost button--sm" href="{% url 'workspace:estimate-line-edit' project.pk line.pk %}" aria-label="Изменить строку {{ line.name }}">{% icon 'edit' 16 %}</a>
+<form method="post" action="{% url 'workspace:estimate-line-delete' project.pk line.pk %}" data-confirm="Удалить строку «{{ line.name }}»?">{% csrf_token %}<input type="hidden" name="revision" value="{{ estimate.revision }}"><button class="button button--ghost button--sm" type="submit" aria-label="Удалить строку {{ line.name }}">{% icon 'trash' 16 %}</button></form></div></td>{% endif %}
+</tr>{% endfor %}{% endfor %}</tbody>
+<tfoot><tr><td colspan="4">Итого</td><td class="num">{{ summary.total|money }}</td>{% if can_edit %}<td></td>{% endif %}</tr></tfoot>
+</table></div>
+{% else %}<div class="empty-state compact">{% icon 'money' %}<h3>В смете пока нет строк</h3><p>Добавьте работы и материалы ниже или перенесите их из предварительного расчёта.</p></div>{% endif %}
+{% if can_edit %}<form class="add-line" method="post" action="{% url 'workspace:estimate-line-add' project.pk estimate.pk %}" data-once>{% csrf_token %}{{ line_form.revision }}
+<h3>Добавить строку</h3>
+{% if not line_form.fields.stage.queryset %}<p class="muted-text">Сначала создайте этапы ремонта — каждая строка сметы относится к этапу. <a href="{% url 'workspace:stage-create' project.pk %}">Добавить этап</a></p>{% else %}
+<div class="form-row">{% for field in line_form.visible_fields %}<div class="field"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}</div>{% endfor %}
+<div class="field add-line__submit"><button class="button button--primary" type="submit">{% icon 'plus' %} Добавить</button></div></div>{% endif %}
+</form>{% endif %}
+</section>
+
+<aside class="stack">
+<section class="card decision-card">
+<span class="eyebrow">Согласование</span>
+{% if estimate.status == 'draft' %}{% if is_foreman and not is_archived %}<p class="muted-text">Проверьте строки и отправьте смету заказчику. Пока она на согласовании, менять её нельзя.</p>
+<form method="post" action="{% url 'workspace:estimate-action' project.pk estimate.pk %}" data-once>{% csrf_token %}<input type="hidden" name="action" value="submit">
+<div class="field"><label for="submit-comment">Комментарий для заказчика</label><textarea id="submit-comment" name="comment" rows="2" placeholder="Например, цены на материалы на эту неделю"></textarea></div>
+<button class="button button--primary" type="submit" {% if not summary.lines %}disabled{% endif %}>{% icon 'send' %} Отправить на согласование</button></form>
+{% else %}<p class="muted-text">Черновик. На согласование смету отправляет прораб{% if membership.role == 'customer' %} — вы можете помочь заполнить строки{% endif %}.</p>{% endif %}{% endif %}
+{% if estimate.status == 'pending' %}{% if estimate.comment %}<div class="result-box"><small class="muted-text">Комментарий прораба</small><p>{{ estimate.comment }}</p></div>{% endif %}
+{% if membership.role == 'customer' and not is_archived %}<form method="post" action="{% url 'workspace:estimate-action' project.pk estimate.pk %}" data-once data-confirm="Утвердить смету на {{ summary.total|money }}?">{% csrf_token %}<input type="hidden" name="action" value="approve"><button class="button button--success" type="submit">{% icon 'check' %} Утвердить смету</button></form>
+<details class="inline-details"><summary class="button button--secondary button--block">Отклонить</summary>
+<form method="post" action="{% url 'workspace:estimate-action' project.pk estimate.pk %}" data-once>{% csrf_token %}<input type="hidden" name="action" value="reject"><div class="field"><label for="reject-reason">Что исправить</label><textarea id="reject-reason" name="reason" rows="3" required></textarea></div><button class="button button--danger" type="submit">Отклонить смету</button></form></details>
+{% elif is_foreman and not is_archived %}<p class="muted-text">Ждём решения заказчика. Если нужно что-то поправить, отзовите смету в черновик.</p>
+<form method="post" action="{% url 'workspace:estimate-action' project.pk estimate.pk %}" data-once>{% csrf_token %}<input type="hidden" name="action" value="withdraw"><button class="button button--secondary" type="submit">Отозвать в черновик</button></form>
+{% else %}<p class="muted-text">Ждём решения заказчика.</p>{% endif %}{% endif %}
+{% if estimate.status == 'approved' %}<p class="success-text">Утверждена {{ estimate.decided_by|display_name }}, {{ estimate.decided_at|date:'d.m.Y H:i' }}.</p>{% if estimate.submitted_by %}<p class="muted-text">Отправил(а) {{ estimate.submitted_by|display_name }}, {{ estimate.submitted_at|date:'d.m.Y H:i' }}.</p>{% endif %}{% endif %}
+{% if estimate.status == 'rejected' %}<div class="notice notice--error"><strong>Отклонена:</strong> {{ estimate.decision_reason }}</div><p class="muted-text">{{ estimate.decided_by|display_name }}, {{ estimate.decided_at|date:'d.m.Y H:i' }}. Нажмите «Новая версия» — строки перенесутся, останется исправить.</p>{% endif %}
+{% if estimate.status == 'superseded' %}<p class="muted-text">Эту версию заменила более новая.</p>{% endif %}
+</section>
+{% if summary.by_type %}<section class="card"><span class="eyebrow">Разбивка</span><h2 style="margin:4px 0 14px">По видам затрат</h2>
+<div class="breakdown">{% for name, value, share in summary.by_type %}<div class="breakdown__row"><span>{{ name }}</span><strong class="money">{{ value|money }}</strong><div class="progress"><span class="progress__fill" style="width: {{ share }}%"></span></div></div>{% endfor %}</div></section>{% endif %}
+<section class="card"><span class="eyebrow">История</span><h2 style="margin:4px 0 10px">Версии сметы</h2>
+<div class="versions">{% for version in versions %}<a href="{% url 'workspace:estimate-version' project.pk version.pk %}" class="{% if version.pk == estimate.pk %}current{% endif %}"><span>Версия {{ version.number }}<small>{{ version.created_at|date:'d.m.Y' }} · {{ version.total|money }}</small></span><span class="badge badge--{{ version.status|status_tone }}">{{ version.get_status_display }}</span></a>{% endfor %}</div></section>
+</aside>
+</div>
+{% else %}
+<section class="card empty-state">{% icon 'money' %}<h2>Сметы ещё нет</h2><p>Создайте смету и добавьте работы по этапам. Можно сначала прикинуть стоимость в предварительном расчёте, а потом перенести его в смету одной кнопкой.</p>
+{% if is_manager %}<div class="card-actions" style="justify-content:center"><form method="post" action="{% url 'workspace:estimate-create' project.pk %}" data-once>{% csrf_token %}<button class="button button--primary" type="submit">{% icon 'plus' %} Создать смету</button></form><a class="button button--secondary" href="{% url 'workspace:calculations' project.pk %}">{% icon 'calc' %} Начать с расчёта</a></div>{% endif %}</section>
+{% endif %}{% endblock %}

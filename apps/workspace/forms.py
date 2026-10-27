@@ -4,8 +4,9 @@ from decimal import Decimal
 from django import forms
 from django.utils import timezone
 
+from apps.estimates.models import CostType
 from apps.projects.models import ProjectMember
-from apps.repairs.models import Stage
+from apps.repairs.models import Stage, Task
 
 DATE_WIDGET = {"format": "%Y-%m-%d", "attrs": {"type": "date"}}
 
@@ -32,8 +33,35 @@ class ProjectForm(forms.Form):
 
 
 class InvitationForm(forms.Form):
-    email = forms.EmailField(label="Электронная почта", widget=forms.EmailInput(attrs={"placeholder": "name@example.com"}))
+    email = forms.EmailField(label="Электронная почта", widget=forms.EmailInput(attrs={"placeholder": "name@example.com"}),
+                             help_text="Человек должен войти (или зарегистрироваться) именно с этим email.")
     role = forms.ChoiceField(label="Роль в проекте", choices=[("foreman", "Прораб"), ("executor", "Исполнитель")])
+
+    def __init__(self, *args, inviter_role="customer", **kwargs):
+        super().__init__(*args, **kwargs)
+        if inviter_role == "foreman":
+            # The foreman builds the crew: executors only (ТЗ 4.1.1 «назначать исполнителей»).
+            self.fields["role"].choices = [("executor", "Исполнитель")]
+
+
+class MultipleFileInput(forms.ClearableFileInput):
+    allow_multiple_selected = True
+
+
+class PhotosField(forms.FileField):
+    """Several optional photos; the content check happens in the service (apps/repairs/images.py)."""
+
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault("required", False)
+        kwargs.setdefault("widget", MultipleFileInput(attrs={"accept": "image/jpeg,image/png,image/webp"}))
+        kwargs.setdefault("help_text", "JPEG, PNG или WebP, до 8 файлов по 8 МБ. Можно не прикладывать.")
+        super().__init__(*args, **kwargs)
+
+    def clean(self, data, initial=None):
+        single = super().clean
+        if isinstance(data, (list, tuple)):
+            return [single(item, initial) for item in data if item]
+        return [single(data, initial)] if data else []
 
 
 class MemberChoiceField(forms.ModelChoiceField):
@@ -106,30 +134,119 @@ class TaskForm(forms.Form):
             self.fields["assignee"].help_text = "Исполнителя можно сменить только до начала выполнения."
         if not self.fields["assignee"].queryset.exists():
             self.fields["assignee"].help_text = "В проекте пока нет исполнителей — пригласите их на странице участников."
+        self.task = task
+        if task is None:
+            self.fields["due_date"].widget.attrs["min"] = timezone.localdate().isoformat()
 
     def clean(self):
         data = super().clean()
         stage, due = data.get("stage"), data.get("due_date")
         if stage and due and not stage.start_date <= due <= stage.end_date:
             self.add_error("due_date", f"Срок должен быть в пределах этапа: {stage.start_date:%d.%m.%Y} — {stage.end_date:%d.%m.%Y}.")
+        elif due and due < timezone.localdate() and (self.task is None or due != self.task.due_date):
+            self.add_error("due_date", "Срок выполнения не может быть в прошлом.")
         return data
 
 
+class TaskChoiceField(forms.ModelChoiceField):
+    def label_from_instance(self, task):
+        return f"{task.stage.name} → {task.name}"
+
+
 class RemarkForm(forms.Form):
-    stage = StageChoiceField(label="Этап", queryset=Stage.objects.none())
-    description = forms.CharField(label="Описание замечания", widget=forms.Textarea(attrs={"rows": 3, "placeholder": "Что не так и как должно быть"}))
-    responsible = MemberChoiceField(label="Ответственный за устранение", queryset=ProjectMember.objects.none())
+    """New remark. The customer addresses the foreman or an executor, the foreman — an executor."""
+
+    stage = StageChoiceField(label="Этап", queryset=Stage.objects.none(),
+                             help_text="Только этапы, по которым идут работы или приёмка.")
+    task = TaskChoiceField(label="Задача (необязательно)", queryset=Task.objects.none(), required=False, empty_label="— без привязки к задаче —")
+    description = forms.CharField(label="Что не так", widget=forms.Textarea(attrs={"rows": 4, "placeholder": "Опишите дефект и как должно быть"}))
+    responsible = MemberChoiceField(label="Кто устраняет", queryset=ProjectMember.objects.none())
     due_date = forms.DateField(label="Срок устранения", widget=forms.DateInput(**DATE_WIDGET))
+    images = PhotosField(label="Фото дефекта")
     request_id = forms.UUIDField(widget=forms.HiddenInput, required=False)
 
-    def __init__(self, *args, project, **kwargs):
+    def __init__(self, *args, project, author_role="customer", **kwargs):
         kwargs.setdefault("initial", {}).setdefault("request_id", uuid.uuid4())
         super().__init__(*args, **kwargs)
-        self.fields["stage"].queryset = project.stages.filter(status__in=["in_progress", "completed", "pending_acceptance"])
-        self.fields["responsible"].queryset = project.members.exclude(role="customer").select_related("user")
+        stages = project.stages.filter(status__in=["in_progress", "completed", "pending_acceptance"])
+        self.fields["stage"].queryset = stages
+        self.fields["task"].queryset = Task.objects.filter(stage__in=stages).select_related("stage").order_by("stage__position", "id")
+        responsible = project.members.filter(is_active=True).exclude(role="customer").select_related("user")
+        if author_role == "foreman":
+            responsible = responsible.filter(role="executor")
+        self.fields["responsible"].queryset = responsible
+        self.fields["due_date"].widget.attrs["min"] = timezone.localdate().isoformat()
+        if not stages.exists():
+            self.fields["stage"].help_text = "Сейчас нет этапов в работе. Запустите этап на странице «Этапы ремонта» — после этого к нему можно оставлять замечания."
 
-    def clean_due_date(self):
-        due = self.cleaned_data["due_date"]
-        if due < timezone.localdate():
-            raise forms.ValidationError("Срок устранения не может быть в прошлом.")
-        return due
+    def clean(self):
+        data = super().clean()
+        stage, task = data.get("stage"), data.get("task")
+        if stage and task and task.stage_id != stage.pk:
+            self.add_error("task", "Задача должна относиться к выбранному этапу.")
+        if data.get("due_date") and data["due_date"] < timezone.localdate():
+            self.add_error("due_date", "Срок устранения не может быть в прошлом.")
+        return data
+
+
+class RemarkEditForm(forms.Form):
+    description = forms.CharField(label="Что не так", widget=forms.Textarea(attrs={"rows": 4}))
+    responsible = MemberChoiceField(label="Кто устраняет", queryset=ProjectMember.objects.none())
+    due_date = forms.DateField(label="Срок устранения", widget=forms.DateInput(**DATE_WIDGET))
+    version = forms.IntegerField(widget=forms.HiddenInput)
+
+    def __init__(self, *args, remark, author_role="customer", **kwargs):
+        kwargs.setdefault("initial", {"description": remark.description, "responsible": remark.responsible,
+                                      "due_date": remark.due_date, "version": remark.version})
+        super().__init__(*args, **kwargs)
+        responsible = remark.project.members.filter(is_active=True).exclude(role="customer").select_related("user")
+        if author_role == "foreman":
+            responsible = responsible.filter(role="executor")
+        self.fields["responsible"].queryset = responsible
+
+
+# ---------- Estimate and preliminary calculation (FR09, FR16) ----------
+
+def unit_widget():
+    return forms.TextInput(attrs={"list": "unit-options", "placeholder": "м², шт, м…", "autocomplete": "off"})
+
+
+class EstimateLineForm(forms.Form):
+    stage = StageChoiceField(label="Этап", queryset=Stage.objects.none())
+    name = forms.CharField(label="Наименование", max_length=255, widget=forms.TextInput(attrs={"placeholder": "Например, укладка плитки на пол"}))
+    cost_type = forms.ChoiceField(label="Вид затрат", choices=CostType.choices)
+    unit = forms.CharField(label="Ед. изм.", max_length=20, widget=unit_widget())
+    quantity = forms.DecimalField(label="Количество", min_value=Decimal("0.001"), max_digits=12, decimal_places=3,
+                                  widget=forms.NumberInput(attrs={"step": "any", "inputmode": "decimal"}))
+    price = forms.DecimalField(label="Цена за ед., сом", min_value=0, max_digits=14, decimal_places=2,
+                               widget=forms.NumberInput(attrs={"step": "any", "inputmode": "decimal"}))
+    revision = forms.IntegerField(widget=forms.HiddenInput)
+
+    def __init__(self, *args, project, estimate, line=None, **kwargs):
+        initial = kwargs.setdefault("initial", {})
+        initial.setdefault("revision", estimate.revision)
+        if line:
+            for name in ["stage", "name", "cost_type", "unit", "quantity", "price"]:
+                initial.setdefault(name, getattr(line, name))
+        super().__init__(*args, **kwargs)
+        self.fields["stage"].queryset = project.stages.exclude(status="cancelled")
+
+
+class CalculationForm(forms.Form):
+    name = forms.CharField(label="Название расчёта", max_length=200, widget=forms.TextInput(attrs={"placeholder": "Например, стандартный ремонт"}))
+    note = forms.CharField(label="Заметка", required=False, widget=forms.Textarea(attrs={"rows": 3, "placeholder": "Откуда цены, что учтено"}))
+
+
+class CalculationItemForm(forms.Form):
+    work = forms.CharField(label="Работа или материал", max_length=255, widget=forms.TextInput(attrs={"placeholder": "Например, штукатурка стен"}))
+    cost_type = forms.ChoiceField(label="Вид затрат", choices=CostType.choices)
+    unit = forms.CharField(label="Ед. изм.", max_length=20, widget=unit_widget())
+    volume = forms.DecimalField(label="Объём", min_value=Decimal("0.001"), max_digits=12, decimal_places=3,
+                                widget=forms.NumberInput(attrs={"step": "any", "inputmode": "decimal"}))
+    price = forms.DecimalField(label="Цена за ед., сом", min_value=0, max_digits=14, decimal_places=2,
+                               widget=forms.NumberInput(attrs={"step": "any", "inputmode": "decimal"}))
+
+    def __init__(self, *args, item=None, **kwargs):
+        if item:
+            kwargs.setdefault("initial", {name: getattr(item, name) for name in ["work", "cost_type", "unit", "volume", "price"]})
+        super().__init__(*args, **kwargs)

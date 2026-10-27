@@ -88,15 +88,20 @@ class ProjectAPITests(APITestCase):
         self.client.force_authenticate(self.foreman)
         self.assertEqual(self.client.post(f"/api/invitations/{response.data['token']}/accept/").status_code, 201)
 
-    def test_only_customer_can_manage_members_and_read_tokens(self):
+    def test_only_customer_manages_team_but_foreman_invites_executors(self):
         member = self.join(self.foreman, "foreman")
         self.client.force_authenticate(self.foreman)
         self.assertEqual(self.client.get(self.base + "members/").status_code, 200)
-        self.assertEqual(self.client.get(self.base + "invitations/").status_code, 403)
-        self.assertEqual(self.invite(self.executor, "executor").status_code, 403)
+        self.assertEqual(self.client.get(self.base + "invitations/").status_code, 200)
+        self.assertEqual(self.invite(self.stranger, "foreman").status_code, 403)  # foreman invites executors only
+        self.assertEqual(self.invite(self.executor, "executor").status_code, 201)
         url = self.base + f"members/{member.pk}/"
         self.assertEqual(self.client.patch(url, {"role": "executor"}).status_code, 403)
         self.assertEqual(self.client.delete(url).status_code, 403)
+        executor_member = self.join(self.stranger, "executor")
+        self.client.force_authenticate(self.stranger)
+        self.assertEqual(self.client.get(self.base + "invitations/").status_code, 403)
+        self.assertTrue(executor_member.is_active)
 
     def test_duplicates_and_second_foreman_are_rejected(self):
         self.assertEqual(self.invite().status_code, 201)

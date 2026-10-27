@@ -15,7 +15,8 @@ def validate_stage(project, data, instance=None):
     if instance is not None and instance.tasks.exclude(due_date__range=(start, end)).exists():
         raise ValidationError({"end_date": "Сроки задач этапа выходят за новые даты. Сначала измените сроки задач."})
     responsible = data.get("responsible", instance.responsible if instance else None)
-    if responsible is None or not ProjectMember.objects.filter(pk=responsible.pk, project=project).exists():
+    responsible_changed = instance is None or ("responsible" in data and data["responsible"] != instance.responsible)
+    if responsible is None or responsible.project_id != project.pk or (responsible_changed and not responsible.is_active):
         raise ValidationError({"responsible": "Ответственный должен участвовать в этом проекте."})
     target = data.get("status", instance.status if instance else "planned")
     transitions = {"planned": {"planned", "in_progress"}, "in_progress": {"in_progress", "completed"}, "completed": {"completed", "in_progress"}}
@@ -42,15 +43,14 @@ def update_stage(*, stage, actor, **data):
     require_manager(project, actor)
     stage.refresh_from_db()
     validate_stage(project, data, stage)
+    if stage.status == Stage.Status.PLANNED and data.get("status") == Stage.Status.IN_PROGRESS and project.status == project.Status.PLANNING:
+        # ТЗ 4.2: works begin only after the estimate is approved and the customer starts the project.
+        raise ValidationError({"status": "Работы по проекту ещё не запущены. Утвердите смету и нажмите «Запустить работы» на странице сметы."})
     before = {key: str(getattr(stage, key)) for key in data}
     for key, value in data.items():
         setattr(stage, key, value)
     stage.save()
     record_event(project, actor, "stage.updated", stage_id=stage.pk, name=stage.name, before=before, after={key: str(value) for key, value in data.items()})
-    if stage.status == Stage.Status.IN_PROGRESS and project.status == project.Status.PLANNING:
-        project.status = project.Status.IN_PROGRESS
-        project.save(update_fields=["status", "updated_at"])
-        record_event(project, actor, "project.started", name=project.name)
     return stage
 
 

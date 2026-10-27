@@ -1,17 +1,19 @@
 {% extends 'workspace/base.html' %}{% load workspace_ui %}{% block title %}Мои проекты{% endblock %}{% block content %}<div class="page-title">
 <div>
 <span class="eyebrow">Объекты и команда</span>
-<h1>Мои проекты</h1>
-<p>Все проекты, в которых вы участвуете.</p>
+<h1>{% if show_archived %}Архив проектов{% else %}Мои проекты{% endif %}</h1>
+<p>{% if show_archived %}Проекты, отправленные в архив. Их данные сохранены, изменения запрещены.{% else %}Все проекты, в которых вы участвуете. Новые — сверху.{% endif %}</p>
 </div>
 <a class="button button--primary" href="{% url 'workspace:project-create' %}">{% icon 'plus' %} Создать проект</a>
 </div>
+{% if not show_archived %}{% include 'workspace/_incoming.html' %}{% endif %}
 <form class="toolbar filter-form" method="get">
-<label class="search">{% icon 'search' %}<input name="q" value="{{ query }}" placeholder="Поиск по названию проекта" aria-label="Поиск по названию проекта">
-</label>
-<button class="button button--secondary" type="submit">Найти</button>{% if query %}<a href="{% url 'workspace:projects' %}">Сбросить</a>{% endif %}<span class="muted-text">Найдено: {{ items|length }}</span>
+{% if show_archived %}<input type="hidden" name="archived" value="1">{% endif %}
+<label class="search">{% icon 'search' %}<input name="q" value="{{ query }}" placeholder="Поиск по названию или адресу" aria-label="Поиск по названию или адресу"></label>
+<button class="button button--secondary" type="submit">Найти</button>{% if query %}<a href="{% url 'workspace:projects' %}{% if show_archived %}?archived=1{% endif %}">Сбросить</a>{% endif %}<span class="muted-text">Найдено: {{ items|length }}</span>
+{% if show_archived %}<a class="archive-switch" href="{% url 'workspace:projects' %}">← Действующие проекты</a>{% elif archived_count %}<a class="archive-switch" href="{% url 'workspace:projects' %}?archived=1">Архив ({{ archived_count }})</a>{% endif %}
 </form>
-<div class="project-grid">{% for item in items %}<article class="card live-project-card">
+<div class="project-grid">{% for item in items %}<article class="card live-project-card{% if item.project.is_archived %} live-project-card--archived{% endif %}">
 <div class="project-illustration" aria-hidden="true">
 <svg viewBox="0 0 400 140" fill="none">
 <path d="M60 120V30h155v90M215 120V60h125v60M60 70h155M140 30v90M250 60v60M30 120h340" stroke="currentColor" stroke-width="2"/>
@@ -20,24 +22,13 @@
 <span class="badge badge--blue">{{ item.role }}</span>
 </div>
 <div class="project-list-card__body">
-<span class="eyebrow">Проект № {{ item.project.pk }}</span>
-<h2>
-<a href="{% url 'workspace:project' item.project.pk %}">{{ item.project.name }}</a>
-</h2>
-<p>{{ item.project.address|default:'Адрес не указан' }} · {{ item.project.get_status_display }}</p>
+<span class="eyebrow">Проект № {{ item.project.pk }} · {% if item.project.is_archived %}В архиве{% else %}{{ item.project.get_status_display }}{% endif %}</span>
+<h2><a href="{% url 'workspace:project' item.project.pk %}">{{ item.project.name }}</a></h2>
+<p>{{ item.project.address|default:'Адрес не указан' }} · создан {{ item.project.created_at|date:'d.m.Y' }}</p>
 <div class="project-meta">
-<span>
-<small>Этапы</small>
-<strong>{{ item.project.stage_count }}</strong>
-</span>
-<span>
-<small>Задачи</small>
-<strong>{{ item.project.task_count }}</strong>
-</span>
-<span>
-<small>Участники</small>
-<strong>{{ item.project.member_count }}</strong>
-</span>
+<span><small>Этапы</small><strong>{{ item.project.stage_count }}</strong></span>
+<span><small>Задачи</small><strong>{{ item.project.task_count }}</strong></span>
+<span><small>Участники</small><strong>{{ item.project.member_count }}</strong></span>
 </div>
 <div class="card-actions">
 <a class="button button--primary" href="{% url 'workspace:project' item.project.pk %}">Открыть проект {% icon 'arrow' %}</a>
@@ -45,6 +36,6 @@
 </div>
 </div>
 </article>{% empty %}<section class="card empty-state">
-<h2>{% if query %}Проекты не найдены{% else %}Проектов пока нет{% endif %}</h2>
-<p>{% if query %}Попробуйте другое название.{% else %}Создайте проект или откройте ссылку приглашения от заказчика.{% endif %}</p>
+<h2>{% if query %}Проекты не найдены{% elif show_archived %}Архив пуст{% else %}Проектов пока нет{% endif %}</h2>
+<p>{% if query %}Попробуйте другое название.{% elif show_archived %}Сюда попадают проекты, которые заказчик отправил в архив.{% else %}Создайте проект или примите приглашение — оно появится выше, если на ваш email кто-то отправил приглашение.{% endif %}</p>
 </section>{% endfor %}</div>{% endblock %}

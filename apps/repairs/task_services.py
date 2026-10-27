@@ -53,11 +53,16 @@ def validate_task(project, data, instance=None):
     if stage.status in CLOSED_STAGE_STATUSES and (instance is None or "stage" in data):
         raise ValidationError({"stage": "Этап на приёмке, принят или отменён — задачи в нём не добавляются."})
     assignee = data.get("assignee", instance.assignee if instance else None)
-    if assignee is None or assignee.project_id != project.pk or assignee.role != ProjectMember.Role.EXECUTOR:
-        raise ValidationError({"assignee": "Исполнитель должен быть участником проекта с ролью «Исполнитель»."})
+    assignee_changed = instance is None or ("assignee" in data and data["assignee"] != instance.assignee)
+    if assignee is None or assignee.project_id != project.pk or assignee.role != ProjectMember.Role.EXECUTOR or (assignee_changed and not assignee.is_active):
+        raise ValidationError({"assignee": "Исполнитель должен быть действующим участником проекта с ролью «Исполнитель»."})
     due_date = data.get("due_date", instance.due_date if instance else None)
     if due_date is None or not stage.start_date <= due_date <= stage.end_date:
         raise ValidationError({"due_date": f"Срок должен попадать в сроки этапа: {stage.start_date:%d.%m.%Y} — {stage.end_date:%d.%m.%Y}."})
+    due_changed = instance is None or ("due_date" in data and data["due_date"] != instance.due_date)
+    if due_changed and due_date < timezone.localdate():
+        # A new or moved deadline must not be born overdue; an existing overdue date may stay as it is.
+        raise ValidationError({"due_date": "Срок выполнения не может быть в прошлом."})
     if "name" in data and not data["name"].strip():
         raise ValidationError({"name": "Укажите название задачи."})
 

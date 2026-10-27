@@ -1,0 +1,52 @@
+{% extends 'workspace/base.html' %}{% load workspace_ui %}{% block title %}{{ calculation.name }}{% endblock %}{% block content %}<a class="back-link" href="{% url 'workspace:calculations' project.pk %}">← Все расчёты</a>
+<div class="page-title">
+<div>
+<span class="eyebrow">Предварительный расчёт</span>
+<h1>{{ calculation.name }}</h1>
+<p>{{ calculation.note|default:'Добавьте работы и материалы — стоимость считается автоматически.' }}</p>
+</div>
+<div class="page-actions">
+<details class="inline-details"><summary class="button button--secondary">{% icon 'edit' %} Переименовать</summary>
+<form method="post" action="{% url 'workspace:calculation-update' project.pk calculation.pk %}" class="card" data-once>{% csrf_token %}<input type="hidden" name="action" value="rename">{% for field in edit_form %}{% include 'accounts/_field.html' %}{% endfor %}<button class="button button--primary" type="submit">Сохранить</button></form></details>
+<form method="post" action="{% url 'workspace:calculation-update' project.pk calculation.pk %}" data-confirm="Удалить расчёт «{{ calculation.name }}»?">{% csrf_token %}<input type="hidden" name="action" value="delete"><button class="button button--ghost" type="submit">{% icon 'trash' %} Удалить</button></form>
+</div>
+</div>
+
+<section class="card">
+<div class="card__head"><div><span class="eyebrow">Позиции</span><h2>Работы и материалы</h2></div><span class="counter">{{ items|length }}</span></div>
+{% if items %}<div class="table-wrap"><table class="data-table">
+<thead><tr><th>Работа или материал</th><th>Ед.</th><th class="num">Объём</th><th class="num">Цена за ед.</th><th class="num">Стоимость</th><th></th></tr></thead>
+<tbody>{% for item in items %}<tr>
+<td><strong>{{ item.work }}</strong><small>{{ item.get_cost_type_display }}</small></td>
+<td>{{ item.unit }}</td>
+<td class="num">{{ item.volume|normalize }}</td>
+<td class="num">{{ item.price|money }}</td>
+<td class="num"><strong>{{ item.amount|money }}</strong></td>
+<td><div class="row-actions"><a class="button button--ghost button--sm" href="{% url 'workspace:calculation-item-edit' project.pk item.pk %}" aria-label="Изменить {{ item.work }}">{% icon 'edit' 16 %}</a>
+<form method="post" action="{% url 'workspace:calculation-item-delete' project.pk item.pk %}" data-confirm="Удалить «{{ item.work }}»?">{% csrf_token %}<button class="button button--ghost button--sm" type="submit" aria-label="Удалить {{ item.work }}">{% icon 'trash' 16 %}</button></form></div></td>
+</tr>{% endfor %}</tbody>
+<tfoot><tr><td colspan="4">Общая стоимость ремонта</td><td class="num">{{ calculation.total|money }}</td><td></td></tr></tfoot>
+</table></div>{% else %}<div class="empty-state compact">{% icon 'calc' %}<h3>Позиций пока нет</h3><p>Добавьте первую работу ниже.</p></div>{% endif %}
+
+<form class="add-line" method="post" action="{% url 'workspace:calculation-update' project.pk calculation.pk %}" data-once>{% csrf_token %}<input type="hidden" name="action" value="add">
+<h3>Добавить позицию</h3>
+<div class="form-row calc-form-row">{% for field in item_form %}<div class="field"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}</div>{% endfor %}
+<div class="field add-line__submit"><button class="button button--primary" type="submit">{% icon 'plus' %} Добавить</button></div></div>
+{% if project.area %}<p class="muted-text" style="margin-top:10px">Площадь квартиры — {{ project.area|normalize }} м². <button class="button button--ghost button--sm" type="button" data-fill-volume="{{ project.area }}">Подставить в объём</button></p>{% endif %}
+</form>
+</section>
+
+<div class="total-bar">
+<div><small>Итого по расчёту</small><strong>{{ calculation.total|money }}</strong>{% if per_m2 %}<small>≈ {{ per_m2|money }} за м² при площади {{ project.area|normalize }} м²</small>{% endif %}</div>
+{% if by_type %}<div>{% for name, value in by_type %}<small>{{ name }}: {{ value|money }}</small>{% endfor %}</div>{% endif %}
+</div>
+
+{% if items %}<section class="card" style="margin-top:16px">
+<div class="card__head"><div><span class="eyebrow">Дальше</span><h2>Перенести в смету</h2></div></div>
+{% if can_transfer %}<p class="muted-text">Все позиции добавятся в черновик сметы{% if not open_estimate %} (он будет создан){% endif %}. Выберите этап, к которому их отнести, — потом в смете можно поправить этап у каждой строки.</p>
+{% if stages %}<form method="post" action="{% url 'workspace:calculation-update' project.pk calculation.pk %}" class="form-row" style="margin-top:12px" data-once>{% csrf_token %}<input type="hidden" name="action" value="to_estimate">
+<div class="field"><label for="transfer-stage">Этап</label><select id="transfer-stage" name="stage" required><option value="">— выберите этап —</option>{% for stage in stages %}<option value="{{ stage.pk }}">{{ stage.name }}</option>{% endfor %}</select></div>
+<div class="field"><button class="button button--primary" type="submit">{% icon 'send' %} Перенести в смету</button></div></form>
+{% else %}<p class="muted-text">Сначала <a href="{% url 'workspace:stage-create' project.pk %}">создайте этап</a> — строки сметы привязываются к этапам.</p>{% endif %}
+{% else %}<p class="muted-text">Смета сейчас на согласовании — переносить в неё нельзя. Дождитесь решения заказчика или отзовите смету.</p>{% endif %}
+</section>{% endif %}{% endblock %}

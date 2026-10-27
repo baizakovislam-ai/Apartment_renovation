@@ -1,3 +1,5 @@
+from datetime import date, timedelta
+
 from django.contrib.auth.decorators import login_required
 from django.db.models import Q
 from django.http import FileResponse, Http404
@@ -12,7 +14,7 @@ from rest_framework.views import APIView
 
 from apps.projects.views import accessible_project
 from . import services, task_services
-from .models import Photo, Stage, Task
+from .models import DUE_SOON_DAYS, Photo, Stage, Task
 from .serializers import (PhotoReportCreateSerializer, PhotoReportSerializer, StageSerializer, TaskActionSerializer,
                           TaskSerializer)
 
@@ -42,7 +44,7 @@ class StageDetailView(generics.RetrieveUpdateDestroyAPIView):
     http_method_names = ["get", "patch", "delete", "head", "options"]
 
     def get_queryset(self):
-        return Stage.objects.filter(project__members__user=self.request.user).select_related("project", "responsible")
+        return Stage.objects.filter(project__members__user=self.request.user, project__members__is_active=True).select_related("project", "responsible")
 
     def get_serializer_context(self):
         return {**super().get_serializer_context(), "project": self.get_object().project}
@@ -65,9 +67,26 @@ def filter_tasks(tasks, params):
         tasks = tasks.filter(stage_id=params["stage"])
     if str(params.get("assignee") or "").isdigit():
         tasks = tasks.filter(assignee_id=params["assignee"])
-    if params.get("deadline") == "overdue":
-        tasks = tasks.filter(due_date__lt=timezone.localdate()).exclude(status=Task.Status.DONE)
-    return tasks
+    today = timezone.localdate()
+    deadline = params.get("deadline")
+    if deadline == "overdue":
+        tasks = tasks.filter(due_date__lt=today).exclude(status=Task.Status.DONE)
+    elif deadline == "soon":
+        tasks = tasks.filter(due_date__range=(today, today + timedelta(days=DUE_SOON_DAYS))).exclude(status=Task.Status.DONE)
+    elif deadline == "open":
+        tasks = tasks.exclude(status=Task.Status.DONE)
+    for key, lookup in (("due_from", "due_date__gte"), ("due_to", "due_date__lte")):
+        try:
+            if params.get(key):
+                tasks = tasks.filter(**{lookup: date.fromisoformat(params[key])})
+        except ValueError:
+            pass
+    order = TASK_ORDERING.get(params.get("sort") or "", None)
+    return tasks.order_by(*order) if order else tasks
+
+
+TASK_ORDERING = {"due": ("due_date", "id"), "-due": ("-due_date", "-id"), "new": ("-created_at", "-id"),
+                 "status": ("status", "due_date"), "name": ("name", "id")}
 
 
 class TaskListCreateView(APIView):
@@ -89,7 +108,7 @@ class TaskListCreateView(APIView):
 
 
 def accessible_task(user, pk):
-    task = get_object_or_404(Task.objects.filter(project__members__user=user).select_related("project", "stage", "assignee__user"), pk=pk)
+    task = get_object_or_404(Task.objects.filter(project__members__user=user, project__members__is_active=True).select_related("project", "stage", "assignee__user"), pk=pk)
     task_services.require_task_access(task, user)
     return task
 
@@ -160,7 +179,7 @@ class ProgressView(APIView):
 @login_required
 def photo_file(request, pk):
     """Serves a photo only to members who may see its task; a direct URL gives strangers 404."""
-    photo = get_object_or_404(Photo.objects.select_related("report__task__project"), pk=pk, report__project__members__user=request.user)
+    photo = get_object_or_404(Photo.objects.select_related("report__task__project"), pk=pk, report__project__members__user=request.user, report__project__members__is_active=True)
     try:
         task_services.require_task_access(photo.report.task, request.user)
     except APIException:

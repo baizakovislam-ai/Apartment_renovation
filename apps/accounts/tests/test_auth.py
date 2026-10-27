@@ -69,7 +69,7 @@ class AuthFlowTests(TestCase):
         self.register()
         self.verify()
         r = self.login()
-        self.assertRedirects(r, reverse("accounts:profile"), fetch_redirect_response=False)
+        self.assertRedirects(r, reverse("workspace:dashboard"), fetch_redirect_response=False)
         self.assertEqual(self.client.get(reverse("accounts:profile")).status_code, 200)
 
     def test_verification_code_is_single_use(self):
@@ -161,7 +161,7 @@ class AuthFlowTests(TestCase):
         self.assertRedirects(r, reverse("accounts:password_reset_complete"))
 
         self.assertNotIn("_auth_user_id", self.login(PASSWORD).client.session)
-        self.assertRedirects(self.login(new), reverse("accounts:profile"), fetch_redirect_response=False)
+        self.assertRedirects(self.login(new), reverse("workspace:dashboard"), fetch_redirect_response=False)
 
     def test_password_reset_code_is_one_time_and_limited(self):
         self.register(); self.verify()
