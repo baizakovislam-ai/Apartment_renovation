@@ -685,3 +685,19 @@ a.attention__item:hover strong { color: var(--brand); }
   .decision-banner__actions, .decision-banner__actions form, .decision-banner__actions .button { width: 100%; }
   .page-actions form, .page-actions .button { width: 100%; }
 }
+
+/* ---------- Changes of the approved estimate (FR11) ---------- */
+.change-create { padding: 0; }
+.change-create__summary { display: flex; align-items: center; gap: 14px; padding: 18px 20px; cursor: pointer; list-style: none; }
+.change-create__summary::-webkit-details-marker { display: none; }
+.change-create__summary > span { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; background: var(--brand-50); color: var(--brand); flex: none; }
+.change-create__summary strong { display: block; }
+.change-create__summary small { color: var(--muted); }
+.change-create form { padding: 0 20px 20px; }
+.change-table .badge { margin-right: 4px; }
+.change-row--add td { background: var(--green-50); }
+.change-row--update td { background: var(--brand-50); }
+.change-row--remove td { background: var(--red-50); }
+.change-row--remove td strong { text-decoration: line-through; }
+.data-table tbody tr.change-row--add:hover td, .data-table tbody tr.change-row--update:hover td, .data-table tbody tr.change-row--remove:hover td { filter: brightness(.98); }
+.approval-row__icon--change { background: var(--violet-50); color: #6d28d9; }

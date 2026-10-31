@@ -2,7 +2,7 @@
 <div>
 <span class="eyebrow">Деньги и согласования</span>
 <h1>Согласования</h1>
-<p>Журнал всего, что требовало решения: сметы и приёмка этапов. Кто отправил, кто решил, когда и почему.</p>
+<p>Журнал всего, что требовало решения: сметы, изменения сметы и приёмка этапов. Кто отправил, кто решил, когда и почему.</p>
 </div>
 {% if pending_count %}<span class="badge badge--orange" style="font-size:14px;padding:7px 14px">Ждут решения: {{ pending_count }}</span>{% endif %}
 </div>
@@ -20,10 +20,10 @@
 <button class="button button--secondary" type="submit">Применить</button>{% if has_filters %}<a href="{% url 'workspace:approvals' project.pk %}">Сбросить</a>{% endif %}
 <span class="muted-text">Найдено: {{ items|length }}</span>
 </form>
-<div class="task-list">{% for item in items %}<a class="card approval-row" href="{% if item.type == 'estimate' %}{% url 'workspace:estimate-version' project.pk item.object_id %}{% else %}{% url 'workspace:acceptance' project.pk %}#stage-{{ item.object_id }}{% endif %}">
-<span class="approval-row__icon approval-row__icon--{{ item.type }}">{% if item.type == 'estimate' %}{% icon 'money' %}{% else %}{% icon 'check' %}{% endif %}</span>
+<div class="task-list">{% for item in items %}<a class="card approval-row" href="{% if item.type == 'estimate' %}{% url 'workspace:estimate-version' project.pk item.object_id %}{% elif item.type == 'change' %}{% url 'workspace:estimate-change' project.pk item.object_id %}{% else %}{% url 'workspace:acceptance' project.pk %}#stage-{{ item.object_id }}{% endif %}">
+<span class="approval-row__icon approval-row__icon--{{ item.type }}">{% if item.type == 'estimate' %}{% icon 'money' %}{% elif item.type == 'change' %}{% icon 'edit' %}{% else %}{% icon 'check' %}{% endif %}</span>
 <div><small>{{ item.type_label }} · {{ item.created_at|date:'d.m.Y H:i' }} · {{ item.author|display_name }}</small><strong>{{ item.title }}</strong>{% if item.text %}<p>«{{ item.text|truncatechars:140 }}»</p>{% endif %}{% if item.decided_at %}<small>Решение: {{ item.decided_by|display_name }}, {{ item.decided_at|date:'d.m.Y H:i' }}</small>{% endif %}</div>
-<span class="money">{% if item.amount is not None %}<strong>{{ item.amount|money }}</strong>{% endif %}</span>
+<span class="money">{% if item.amount is not None %}<strong>{% if item.type == 'change' %}{{ item.amount|signed_money }}{% else %}{{ item.amount|money }}{% endif %}</strong>{% endif %}</span>
 <span class="badge badge--{% if item.status == 'pending' %}orange{% elif item.status == 'approved' %}green{% elif item.status == 'rejected' %}red{% else %}gray{% endif %}"><span class="badge__dot"></span>{{ item.status_label }}</span>
 </a>{% empty %}<section class="card empty-state">{% icon 'stamp' %}<h2>{% if has_filters %}Ничего не найдено{% else %}Согласований пока не было{% endif %}</h2><p>{% if has_filters %}Измените условия поиска.{% else %}Здесь появятся сметы, отправленные на согласование, и решения по приёмке этапов.{% endif %}</p></section>{% endfor %}</div>
 {% endblock %}

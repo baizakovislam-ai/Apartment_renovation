@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
@@ -87,6 +89,7 @@ def run_service(request, call, success):
 
 def attention_items(project, user):
     """What is waiting for this person right now: (icon, tone, title, hint, url)."""
+    from apps.estimates import change_services
     from apps.estimates import services as estimate_services
     from apps.quality.models import Remark
     member = active_membership(project, user)
@@ -98,6 +101,9 @@ def attention_items(project, user):
     if member.role == "customer":
         if open_estimate and open_estimate.status == "pending":
             items.append(("money", "orange", f"Смета на {open_estimate.total:,.0f} сом ждёт вашего решения".replace(",", " "), "Утвердите или отклоните с причиной", url("estimate")))
+        for change in change_services.pending_requests(project):
+            items.append(("edit", "orange", f"Изменение сметы №{change.number} ждёт вашего решения",
+                          f"{change.cost_delta:+,.0f} сом · «{change.reason[:60]}»".replace(",", " "), url("estimate-change", change.pk)))
         if project.status == "planning" and estimate_services.approved_estimate(project) and not estimate_services.start_blockers(project):
             items.append(("play", "green", "Можно запускать работы", "Смета утверждена, прораб в команде", url("estimate")))
         pending = project.stages.filter(status="pending_acceptance").count()
@@ -115,6 +121,9 @@ def attention_items(project, user):
             items.append(("money", "red", "Заказчик отклонил смету", f"«{latest.decision_reason[:80]}» — создайте новую версию", url("estimate")))
         elif open_estimate and open_estimate.status == "draft" and open_estimate.lines.exists():
             items.append(("send", "blue", "Черновик сметы не отправлен", "Проверьте строки и отправьте заказчику", url("estimate")))
+        for change in project.change_requests.filter(created_by=user, status="rejected", decided_at__gte=timezone.now() - timedelta(days=7)):
+            items.append(("edit", "red", f"Заказчик отклонил изменение сметы №{change.number}", f"«{change.decision_reason[:80]}»",
+                          url("estimate-change", change.pk)))
         review = project.tasks.filter(status="review").count()
         if review:
             items.append(("tasks", "orange", f"Задач ждут проверки: {review}", "Подтвердите выполнение или верните", url("tasks") + "?status=review"))

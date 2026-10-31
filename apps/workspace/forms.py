@@ -250,3 +250,51 @@ class CalculationItemForm(forms.Form):
         if item:
             kwargs.setdefault("initial", {name: getattr(item, name) for name in ["work", "cost_type", "unit", "volume", "price"]})
         super().__init__(*args, **kwargs)
+
+
+# ---------- Changes of the approved estimate (FR11) ----------
+
+class ChangeRequestForm(forms.Form):
+    reason = forms.CharField(label="Причина изменения", widget=forms.Textarea(attrs={
+        "rows": 3, "placeholder": "Например, заказчик выбрал другую плитку; при демонтаже нашли скрытую проводку"}))
+    schedule_stage = StageChoiceField(label="Этап, срок которого меняется", queryset=Stage.objects.none(), required=False,
+                                      empty_label="— сроки не меняются —")
+    new_end_date = forms.DateField(label="Новый срок окончания этапа", required=False, widget=forms.DateInput(**DATE_WIDGET))
+    revision = forms.IntegerField(widget=forms.HiddenInput, required=False)
+
+    def __init__(self, *args, project, change=None, **kwargs):
+        if change is not None:
+            kwargs.setdefault("initial", {"reason": change.reason, "schedule_stage": change.schedule_stage_id,
+                                          "new_end_date": change.new_end_date, "revision": change.revision})
+        super().__init__(*args, **kwargs)
+        self.fields["schedule_stage"].queryset = project.stages.exclude(status__in=["accepted", "cancelled"])
+
+    def clean(self):
+        data = super().clean()
+        if data.get("schedule_stage") and not data.get("new_end_date"):
+            self.add_error("new_end_date", "Укажите новый срок окончания этапа.")
+        if data.get("new_end_date") and not data.get("schedule_stage"):
+            self.add_error("schedule_stage", "Выберите этап, срок которого меняется.")
+        return data
+
+
+class ChangeItemForm(forms.Form):
+    """New values of one estimate position inside a change request."""
+    stage = StageChoiceField(label="Этап", queryset=Stage.objects.none())
+    name = forms.CharField(label="Наименование", max_length=255, widget=forms.TextInput(attrs={"placeholder": "Например, керамогранит 60×60"}))
+    cost_type = forms.ChoiceField(label="Вид затрат", choices=CostType.choices)
+    unit = forms.CharField(label="Ед. изм.", max_length=20, widget=unit_widget())
+    quantity = forms.DecimalField(label="Количество", min_value=Decimal("0.001"), max_digits=12, decimal_places=3,
+                                  widget=forms.NumberInput(attrs={"step": "any", "inputmode": "decimal"}))
+    price = forms.DecimalField(label="Цена за ед., сом", min_value=0, max_digits=14, decimal_places=2,
+                               widget=forms.NumberInput(attrs={"step": "any", "inputmode": "decimal"}))
+    revision = forms.IntegerField(widget=forms.HiddenInput)
+
+    def __init__(self, *args, change, source=None, **kwargs):
+        initial = kwargs.setdefault("initial", {})
+        initial.setdefault("revision", change.revision)
+        if source is not None:  # the current change of the line, or the approved line itself
+            for name in ["stage", "name", "cost_type", "unit", "quantity", "price"]:
+                initial.setdefault(name, getattr(source, name))
+        super().__init__(*args, **kwargs)
+        self.fields["stage"].queryset = change.project.stages.exclude(status="cancelled")
