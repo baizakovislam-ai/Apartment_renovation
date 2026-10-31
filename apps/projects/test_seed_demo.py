@@ -31,6 +31,7 @@ class SeedDemoTests(TestCase):
     def test_seed_milestone80_adds_estimate_history_to_old_demo(self):
         call_command("seed_demo", password="Demo-password-2026", stdout=io.StringIO())
         project = Project.objects.get(name="Демонстрационный ремонт")
+        project.change_requests.all().delete()
         project.estimates.all().delete()  # simulate a demo created before the estimate module
         project.calculations.all().delete()
         call_command("seed_milestone80", stdout=io.StringIO())
@@ -39,3 +40,15 @@ class SeedDemoTests(TestCase):
         self.assertEqual(project.calculations.count(), 1)
         call_command("seed_milestone80", stdout=io.StringIO())  # repeat run changes nothing
         self.assertEqual(project.estimates.count(), 2)
+
+    def test_seed_milestone60_adds_pending_estimate_change(self):
+        call_command("seed_demo", password="Demo-password-2026", stdout=io.StringIO())
+        project = Project.objects.get(name="Демонстрационный ремонт")
+        change = project.change_requests.get()
+        self.assertEqual((change.status, change.items.count()), ("pending", 2))
+        self.assertGreater(change.cost_delta, 0)
+        project.change_requests.all().delete()  # simulate a demo created before the estimate changes
+        call_command("seed_milestone60", stdout=io.StringIO())
+        self.assertEqual(project.change_requests.count(), 1)
+        call_command("seed_milestone60", stdout=io.StringIO())  # repeat run changes nothing
+        self.assertEqual(project.change_requests.count(), 1)

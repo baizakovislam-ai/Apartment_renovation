@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#0d1729">
 <title>{% block title %}Рабочее пространство{% endblock %} — Контроль ремонта</title>
-<link rel="icon" href="{% static 'workspace/favicon.svg' %}">
+<link rel="icon" href="{% static 'workspace/renovation-icon.svg' %}">
 <link rel="stylesheet" href="{% static 'workspace/ui.css' %}?v=80">
 <script src="{% static 'workspace/app.js' %}?v=80" defer></script>
 </head>
@@ -30,6 +30,7 @@
 <a class="nav__item {% if page == 'members' %}nav__item--active{% endif %}" href="{% url 'workspace:members' project.pk %}">{% icon 'users' %}<span>Участники</span></a>
 {% if nav_manager %}<span class="nav__label">Деньги и согласования</span>
 <a class="nav__item {% if page == 'estimate' %}nav__item--active{% endif %}" href="{% url 'workspace:estimate' project.pk %}">{% icon 'money' %}<span>Смета</span></a>
+<a class="nav__item {% if page == 'estimate-changes' %}nav__item--active{% endif %}" href="{% url 'workspace:estimate-changes' project.pk %}">{% icon 'edit' %}<span>Изменения сметы</span></a>
 <a class="nav__item {% if page == 'calculations' %}nav__item--active{% endif %}" href="{% url 'workspace:calculations' project.pk %}">{% icon 'calc' %}<span>Предварительный расчёт</span></a>
 <a class="nav__item {% if page == 'approvals' %}nav__item--active{% endif %}" href="{% url 'workspace:approvals' project.pk %}">{% icon 'stamp' %}<span>Согласования</span></a>
 <a class="nav__item {% if page == 'acceptance' %}nav__item--active{% endif %}" href="{% url 'workspace:acceptance' project.pk %}">{% icon 'check' %}<span>Приёмка работ</span></a>

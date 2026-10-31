@@ -53,7 +53,8 @@ def display_name(user):
 def status_tone(status):
     return {"planned": "gray", "in_progress": "blue", "completed": "teal", "pending_acceptance": "orange", "accepted": "green", "cancelled": "red",
             "todo": "gray", "review": "orange", "done": "green", "open": "red", "fixed": "orange", "closed": "green",
-            "planning": "gray", "draft": "gray", "pending": "orange", "approved": "green", "rejected": "red", "superseded": "gray"}.get(status, "gray")
+            "planning": "gray", "draft": "gray", "pending": "orange", "approved": "green", "rejected": "red", "superseded": "gray", "withdrawn": "gray",
+            "add": "green", "update": "blue", "remove": "red", "same": "gray"}.get(status, "gray")
 
 
 @register.filter
@@ -88,7 +89,13 @@ def event_label(action):
             "estimate.submitted": "Смета отправлена на согласование", "estimate.withdrawn": "Смета отозвана в черновик",
             "estimate.approved": "Смета утверждена", "estimate.rejected": "Смета отклонена",
             "calculation.created": "Создан предварительный расчёт", "calculation.deleted": "Удалён предварительный расчёт",
-            "calculation.to_estimate": "Расчёт перенесён в смету", "project.started": "Работы по проекту запущены"}.get(action, action)
+            "calculation.to_estimate": "Расчёт перенесён в смету", "project.started": "Работы по проекту запущены",
+            "estimate_change.created": "Создана заявка на изменение сметы", "estimate_change.updated": "Изменена заявка на изменение сметы",
+            "estimate_change.deleted": "Удалён черновик заявки на изменение сметы",
+            "estimate_change.item_set": "Изменена позиция в заявке на изменение сметы",
+            "estimate_change.item_deleted": "Отменено изменение позиции в заявке",
+            "estimate_change.submitted": "Изменение сметы отправлено на согласование", "estimate_change.withdrawn": "Заявка на изменение сметы отозвана",
+            "estimate_change.approved": "Изменение сметы одобрено", "estimate_change.rejected": "Изменение сметы отклонено"}.get(action, action)
 
 
 @register.filter
@@ -112,3 +119,12 @@ def highlight(text, query):
         return mark_safe(text)
     pattern = "|".join(re.escape(term) for term in sorted(terms, key=len, reverse=True))
     return mark_safe(re.sub(pattern, lambda match: f"<mark>{match.group(0)}</mark>", text, flags=re.IGNORECASE))
+
+
+@register.filter
+def signed_money(value):
+    """+1 500,00 сом / −800,00 сом / 0,00 сом — the change of a sum."""
+    if value in (None, ""):
+        return "—"
+    text = money(abs(value))
+    return f"+{text}" if value > 0 else (f"−{text}" if value < 0 else text)

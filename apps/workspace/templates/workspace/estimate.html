@@ -2,9 +2,10 @@
 <div>
 <span class="eyebrow">Деньги и согласования</span>
 <h1>Смета{% if estimate %} <span class="muted-text">версия {{ estimate.number }}</span>{% endif %}</h1>
-<p>{% if not estimate %}Смета — это список работ и материалов с ценами по этапам. Прораб составляет её и отправляет заказчику, заказчик утверждает.{% elif estimate.status == 'draft' %}Черновик: добавляйте строки, затем прораб отправит смету заказчику.{% elif estimate.status == 'pending' %}Смета ждёт решения заказчика. Пока она на согласовании, её нельзя менять.{% elif estimate.status == 'approved' %}Утверждённая смета. Изменения — только через новую версию.{% elif estimate.status == 'rejected' %}Заказчик отклонил эту версию. Создайте новую версию с исправлениями.{% else %}Старая версия: её заменила более новая.{% endif %}</p>
+<p>{% if not estimate %}Смета — это список работ и материалов с ценами по этапам. Прораб составляет её и отправляет заказчику, заказчик утверждает.{% elif estimate.status == 'draft' %}Черновик: добавляйте строки, затем прораб отправит смету заказчику.{% elif estimate.status == 'pending' %}Смета ждёт решения заказчика. Пока она на согласовании, её нельзя менять.{% elif estimate.status == 'approved' %}Утверждённая смета. Чтобы что-то поменять, составьте заявку на изменение — заказчик её согласует.{% elif estimate.status == 'rejected' %}Заказчик отклонил эту версию. Создайте новую версию с исправлениями.{% else %}Старая версия: её заменила более новая.{% endif %}</p>
 </div>
 <div class="page-actions">{% if is_manager and not open_estimate %}<form method="post" action="{% url 'workspace:estimate-create' project.pk %}" data-once>{% csrf_token %}<button class="button button--primary" type="submit">{% icon 'plus' %} {% if estimate %}Новая версия{% else %}Создать смету{% endif %}</button></form>{% endif %}
+{% if is_manager and estimate.status == 'approved' %}<a class="button button--primary" href="{% url 'workspace:estimate-changes' project.pk %}">{% icon 'edit' %} Предложить изменение</a>{% endif %}
 <a class="button button--secondary" href="{% url 'workspace:calculations' project.pk %}">{% icon 'calc' %} Предварительный расчёт</a></div>
 </div>
 
@@ -16,6 +17,8 @@
 </div>
 
 {% if approved and approved.pk != estimate.pk %}<div class="notice" style="margin-bottom:18px">Действует утверждённая смета — <a href="{% url 'workspace:estimate-version' project.pk approved.pk %}">версия {{ approved.number }} на {{ approved.total|money }}</a>.{% if estimate.status == 'draft' or estimate.status == 'pending' %} Эта версия заменит её после утверждения.{% endif %}</div>{% endif %}
+{% if source_change %}<div class="notice" style="margin-bottom:18px">Эта версия создана по <a href="{% url 'workspace:estimate-change' project.pk source_change.pk %}">заявке на изменение №{{ source_change.number }}</a>: «{{ source_change.reason|truncatechars:120 }}».</div>{% endif %}
+{% if open_changes %}<div class="notice notice--warning" style="margin-bottom:18px"><strong>Изменения сметы в работе:</strong>{% for change in open_changes %} <a href="{% url 'workspace:estimate-change' project.pk change.pk %}">№{{ change.number }} ({{ change.get_status_display|lower }}, {{ change.cost_delta|signed_money }})</a>{% if not forloop.last %},{% endif %}{% endfor %}.</div>{% endif %}
 {% if estimate.status == 'pending' and membership.role == 'customer' and not is_archived %}<section class="card decision-banner">
 <div><span class="eyebrow">Ждёт вашего решения</span><h2>Утвердить смету на {{ summary.total|money }}?</h2>
 <p class="muted-text">Отправил(а) {{ estimate.submitted_by|display_name }}, {{ estimate.submitted_at|date:'d.m.Y H:i' }}.{% if estimate.comment %} Комментарий: «{{ estimate.comment }}»{% endif %}</p></div>
