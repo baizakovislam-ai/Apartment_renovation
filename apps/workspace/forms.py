@@ -5,6 +5,7 @@ from django import forms
 from django.utils import timezone
 
 from apps.estimates.models import CostType
+from apps.pricing.models import PriceItem, WorkCategory
 from apps.projects.models import ProjectMember
 from apps.repairs.models import Stage, Task
 
@@ -298,3 +299,29 @@ class ChangeItemForm(forms.Form):
                 initial.setdefault(name, getattr(source, name))
         super().__init__(*args, **kwargs)
         self.fields["stage"].queryset = change.project.stages.exclude(status="cancelled")
+
+
+# ---------- Foreman's price list (FR14) ----------
+
+class PriceItemForm(forms.Form):
+    name = forms.CharField(label="Название работы", max_length=255, widget=forms.TextInput(attrs={"placeholder": "Например, укладка ламината"}))
+    category = forms.ChoiceField(label="Категория", choices=WorkCategory.choices)
+    unit = forms.CharField(label="Ед. изм.", max_length=20, widget=unit_widget())
+    price = forms.DecimalField(label="Цена за ед., сом", min_value=Decimal("0.01"), max_digits=14, decimal_places=2,
+                               widget=forms.NumberInput(attrs={"step": "any", "inputmode": "decimal"}))
+
+    def __init__(self, *args, item=None, **kwargs):
+        if item:
+            kwargs.setdefault("initial", {name: getattr(item, name) for name in ["name", "category", "unit", "price"]})
+        super().__init__(*args, **kwargs)
+
+
+class FromPriceListForm(forms.Form):
+    price_item = forms.ModelChoiceField(label="Работа из прайс-листа", queryset=PriceItem.objects.none(), empty_label="— выберите работу —")
+    volume = forms.DecimalField(label="Объём", min_value=Decimal("0.001"), max_digits=12, decimal_places=3,
+                                widget=forms.NumberInput(attrs={"step": "any", "inputmode": "decimal"}))
+
+    def __init__(self, *args, items, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["price_item"].queryset = items
+        self.fields["price_item"].label_from_instance = lambda item: f"{item.name} — {item.price:.2f} сом/{item.unit}"

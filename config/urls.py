@@ -12,6 +12,7 @@ urlpatterns = [
     path("api/", include("apps.repairs.urls")),
     path("api/", include("apps.quality.urls")),
     path("api/", include("apps.estimates.urls")),
+    path("api/", include("apps.pricing.urls")),
     path("files/photos/<int:pk>/", photo_file, name="photo-file"),
     path("files/remark-photos/<int:pk>/", remark_photo_file, name="remark-photo-file"),
     path("", include("apps.workspace.urls")),

@@ -1,5 +1,5 @@
 from django.urls import path
-from . import finance_views as finance, views, work_views as work
+from . import finance_views as finance, price_views as prices, views, work_views as work
 
 app_name = "workspace"
 urlpatterns = [
@@ -51,6 +51,10 @@ urlpatterns = [
     path("projects/<int:project_id>/calculations/<int:calculation_id>/update/", finance.calculation_update, name="calculation-update"),
     path("projects/<int:project_id>/calculations/items/<int:item_id>/edit/", finance.calculation_item_edit, name="calculation-item-edit"),
     path("projects/<int:project_id>/calculations/items/<int:item_id>/delete/", finance.calculation_item_delete, name="calculation-item-delete"),
+    path("projects/<int:project_id>/price-list/", prices.project_price_list, name="project-price-list"),
+    path("price-list/", prices.price_list, name="price-list"),
+    path("price-list/<int:item_id>/edit/", prices.price_item_edit, name="price-item-edit"),
+    path("price-list/<int:item_id>/delete/", prices.price_item_delete, name="price-item-delete"),
     path("projects/<int:project_id>/approvals/", finance.approvals, name="approvals"),
     path("projects/<int:project_id>/search/", finance.project_search, name="search"),
 ]

@@ -11,6 +11,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 from rest_framework.exceptions import APIException
 
+from apps.pricing import services as price_services
 from apps.projects import services as project_services
 from apps.projects.emails import send_invitation_email
 from apps.projects.models import Project, ProjectInvitation, ProjectMember
@@ -52,6 +53,7 @@ def context(request, project=None, page="dashboard", **extra):
         "nav_manager": role in ("customer", "foreman"),
         "is_archived": archived,
         "incoming_count": project_services.pending_invitations_for(request.user).count(),
+        "keeps_price_list": price_services.is_foreman(request.user),
         "page": page, "today": timezone.localdate(), **extra,
     }
 

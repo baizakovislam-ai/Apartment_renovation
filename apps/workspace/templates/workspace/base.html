@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0d1729">
 <title>{% block title %}Рабочее пространство{% endblock %} — Контроль ремонта</title>
 <link rel="icon" href="{% static 'workspace/renovation-icon.svg' %}">
-<link rel="stylesheet" href="{% static 'workspace/ui.css' %}?v=80">
+<link rel="stylesheet" href="{% static 'workspace/ui.css' %}?v=81">
 <script src="{% static 'workspace/app.js' %}?v=80" defer></script>
 </head>
 <body>
@@ -22,6 +22,7 @@
 <span class="nav__label">Рабочее пространство</span>
 <a class="nav__item {% if page == 'dashboard' %}nav__item--active{% endif %}" href="{% url 'workspace:dashboard' %}{% if project %}?project={{ project.pk }}{% endif %}">{% icon 'home' %}<span>Главная</span>{% if incoming_count %}<b class="nav__badge" title="Приглашения для вас">{{ incoming_count }}</b>{% endif %}</a>
 <a class="nav__item {% if page == 'projects' %}nav__item--active{% endif %}" href="{% url 'workspace:projects' %}">{% icon 'projects' %}<span>Мои проекты</span></a>
+{% if keeps_price_list %}<a class="nav__item {% if page == 'price-list' %}nav__item--active{% endif %}" href="{% url 'workspace:price-list' %}">{% icon 'tag' %}<span>Мой прайс-лист</span></a>{% endif %}
 {% if project %}<span class="nav__label">Работы</span>
 <a class="nav__item {% if page == 'project' %}nav__item--active{% endif %}" href="{% url 'workspace:project' project.pk %}">{% icon 'info' %}<span>О проекте</span></a>
 <a class="nav__item {% if page == 'stages' %}nav__item--active{% endif %}" href="{% url 'workspace:stages' project.pk %}">{% icon 'stages' %}<span>Этапы ремонта</span></a>
@@ -32,6 +33,7 @@
 <a class="nav__item {% if page == 'estimate' %}nav__item--active{% endif %}" href="{% url 'workspace:estimate' project.pk %}">{% icon 'money' %}<span>Смета</span></a>
 <a class="nav__item {% if page == 'estimate-changes' %}nav__item--active{% endif %}" href="{% url 'workspace:estimate-changes' project.pk %}">{% icon 'edit' %}<span>Изменения сметы</span></a>
 <a class="nav__item {% if page == 'calculations' %}nav__item--active{% endif %}" href="{% url 'workspace:calculations' project.pk %}">{% icon 'calc' %}<span>Предварительный расчёт</span></a>
+<a class="nav__item {% if page == 'project-price-list' %}nav__item--active{% endif %}" href="{% url 'workspace:project-price-list' project.pk %}">{% icon 'tag' %}<span>Прайс-лист прораба</span></a>
 <a class="nav__item {% if page == 'approvals' %}nav__item--active{% endif %}" href="{% url 'workspace:approvals' project.pk %}">{% icon 'stamp' %}<span>Согласования</span></a>
 <a class="nav__item {% if page == 'acceptance' %}nav__item--active{% endif %}" href="{% url 'workspace:acceptance' project.pk %}">{% icon 'check' %}<span>Приёмка работ</span></a>
 <a class="nav__item {% if page == 'history' %}nav__item--active{% endif %}" href="{% url 'workspace:history' project.pk %}">{% icon 'history' %}<span>История изменений</span></a>{% endif %}{% endif %}

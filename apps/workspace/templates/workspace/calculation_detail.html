@@ -28,8 +28,15 @@
 <tfoot><tr><td colspan="4">Общая стоимость ремонта</td><td class="num">{{ calculation.total|money }}</td><td></td></tr></tfoot>
 </table></div>{% else %}<div class="empty-state compact">{% icon 'calc' %}<h3>Позиций пока нет</h3><p>Добавьте первую работу ниже.</p></div>{% endif %}
 
+{% if price_form %}<form class="add-line" method="post" action="{% url 'workspace:calculation-update' project.pk calculation.pk %}" data-once>{% csrf_token %}<input type="hidden" name="action" value="from_price_list">
+<h3>{% icon 'tag' 16 %} Из прайс-листа прораба</h3>
+<div class="form-row pick-form-row">{% for field in price_form %}<div class="field"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}</div>{% endfor %}
+<div class="field add-line__submit"><button class="button button--primary" type="submit">{% icon 'plus' %} Добавить</button></div></div>
+<p class="muted-text" style="margin-top:10px">Цена берётся из <a href="{% url 'workspace:project-price-list' project.pk %}">прайс-листа {{ price_foreman|display_name }}</a> и сохраняется в расчёте — если прораб потом изменит цену, этот расчёт не изменится.</p>
+</form>{% elif price_foreman %}<p class="muted-text" style="margin-top:16px">У прораба пока пустой <a href="{% url 'workspace:project-price-list' project.pk %}">прайс-лист</a> — цены можно ввести вручную ниже.</p>{% endif %}
+
 <form class="add-line" method="post" action="{% url 'workspace:calculation-update' project.pk calculation.pk %}" data-once>{% csrf_token %}<input type="hidden" name="action" value="add">
-<h3>Добавить позицию</h3>
+<h3>{% if price_form %}Или добавить вручную{% else %}Добавить позицию{% endif %}</h3>
 <div class="form-row calc-form-row">{% for field in item_form %}<div class="field"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}</div>{% endfor %}
 <div class="field add-line__submit"><button class="button button--primary" type="submit">{% icon 'plus' %} Добавить</button></div></div>
 {% if project.area %}<p class="muted-text" style="margin-top:10px">Площадь квартиры — {{ project.area|normalize }} м². <button class="button button--ghost button--sm" type="button" data-fill-volume="{{ project.area }}">Подставить в объём</button></p>{% endif %}

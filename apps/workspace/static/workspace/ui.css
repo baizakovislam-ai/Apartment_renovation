@@ -701,3 +701,9 @@ a.attention__item:hover strong { color: var(--brand); }
 .change-row--remove td strong { text-decoration: line-through; }
 .data-table tbody tr.change-row--add:hover td, .data-table tbody tr.change-row--update:hover td, .data-table tbody tr.change-row--remove:hover td { filter: brightness(.98); }
 .approval-row__icon--change { background: var(--violet-50); color: #6d28d9; }
+
+/* ---------- foreman's price list (FR14) ---------- */
+.add-line .price-form-row { grid-template-columns: 2fr 1.3fr .8fr 1fr auto; }
+.add-line .pick-form-row { grid-template-columns: 3fr 1fr auto; }
+@media (max-width: 1180px) { .add-line .price-form-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 720px) { .add-line .price-form-row, .add-line .pick-form-row { grid-template-columns: minmax(0, 1fr); } }
