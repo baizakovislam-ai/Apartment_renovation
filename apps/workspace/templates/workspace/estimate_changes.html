@@ -1,0 +1,36 @@
+{% extends 'workspace/base.html' %}{% load workspace_ui %}{% block title %}Изменения сметы{% endblock %}{% block content %}<div class="page-title">
+<div>
+<span class="eyebrow">Деньги и согласования</span>
+<h1>Изменения сметы</h1>
+<p>Утверждённую смету не правят напрямую. Чтобы добавить, изменить или убрать работы и материалы или сдвинуть срок этапа, составьте заявку: укажите причину и новые значения. Заказчик одобрит или отклонит её, и после одобрения появится новая версия сметы.</p>
+</div>
+{% if approved %}<a class="button button--secondary" href="{% url 'workspace:estimate-version' project.pk approved.pk %}">{% icon 'money' %} Смета v{{ approved.number }} · {{ approved.total|money }}</a>{% endif %}
+</div>
+
+{% if not approved %}<section class="card empty-state">{% icon 'money' %}<h2>Сначала нужна утверждённая смета</h2><p>Изменения оформляются к утверждённой смете. Составьте смету и отправьте её заказчику на согласование.</p>
+<div class="card-actions" style="justify-content:center"><a class="button button--primary" href="{% url 'workspace:estimate' project.pk %}">{% icon 'arrow' %} Перейти к смете</a></div></section>
+{% else %}
+{% if is_manager %}<details class="card change-create" {% if form.errors %}open{% endif %}>
+<summary class="change-create__summary"><span>{% icon 'plus' %}</span><div><strong>Новая заявка на изменение</strong><small>К смете версии {{ approved.number }} на {{ approved.total|money }}</small></div></summary>
+<form method="post" data-once novalidate>{% csrf_token %}{% if form.non_field_errors %}<div class="notice notice--error" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+{% include 'accounts/_field.html' with field=form.reason %}
+<div class="form-row">{% include 'accounts/_field.html' with field=form.schedule_stage %}{% include 'accounts/_field.html' with field=form.new_end_date %}</div>
+<p class="muted-text">Срок заполняйте, только если изменение сдвигает окончание этапа. Позиции сметы отметите на следующем шаге.</p>
+<div class="card-actions"><button class="button button--primary" type="submit">{% icon 'check' %} Создать заявку</button></div>
+</form></details>{% endif %}
+{% if open_estimate %}<div class="notice notice--warning" style="margin:16px 0">Сейчас готовится новая версия сметы (v{{ open_estimate.number }}, «{{ open_estimate.get_status_display }}»). Одобрить изменение можно будет после того, как с ней закончат.</div>{% endif %}
+
+<div class="tabs-bar" style="margin-top:18px">
+<a href="?" class="{% if not status %}active{% endif %}">Все</a>
+{% for value, label in statuses %}<a href="?status={{ value }}" class="{% if status == value %}active{% endif %}">{{ label }}{% for key, count in counts.items %}{% if key == value and count %} · {{ count }}{% endif %}{% endfor %}</a>{% endfor %}
+</div>
+<div class="task-list">{% for change in changes %}<a class="card approval-row" href="{% url 'workspace:estimate-change' project.pk change.pk %}">
+<span class="approval-row__icon approval-row__icon--estimate">{% icon 'edit' %}</span>
+<div><small>№{{ change.number }} · к смете v{{ change.estimate.number }} · {{ change.created_at|date:'d.m.Y H:i' }} · {{ change.created_by|display_name }}</small>
+<strong>{{ change.reason|truncatechars:90 }}</strong>
+<p>Позиций: {{ change.items.all|length }}{% if change.schedule_stage %} · срок этапа «{{ change.schedule_stage.name }}» → {{ change.new_end_date|date:'d.m.Y' }}{% endif %}{% if change.result_estimate %} · создана смета v{{ change.result_estimate.number }}{% endif %}</p>
+{% if change.decision_reason %}<small>Причина отказа: «{{ change.decision_reason|truncatechars:100 }}»</small>{% endif %}</div>
+<span class="money"><strong class="{% if change.cost_delta > 0 %}overdue{% elif change.cost_delta < 0 %}success-text{% endif %}">{{ change.cost_delta|signed_money }}</strong></span>
+<span class="badge badge--{{ change.status|status_tone }}"><span class="badge__dot"></span>{{ change.get_status_display }}</span>
+</a>{% empty %}<section class="card empty-state">{% icon 'edit' %}<h2>{% if status %}Заявок с таким статусом нет{% else %}Изменений пока не было{% endif %}</h2><p>Здесь появятся заявки на изменение утверждённой сметы: что меняется, на сколько дороже или дешевле и как сдвигаются сроки.</p></section>{% endfor %}</div>
+{% endif %}{% endblock %}

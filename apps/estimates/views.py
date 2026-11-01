@@ -7,9 +7,10 @@ from rest_framework.views import APIView
 from apps.projects.serializers import ProjectSerializer
 from apps.projects.views import accessible_project
 from apps.repairs.models import Stage
-from . import search, services
-from .models import Calculation, CalculationItem, Estimate, EstimateLine
-from .serializers import (CalculationItemSerializer, CalculationSerializer, EstimateActionSerializer, EstimateLineSerializer,
+from . import change_services, search, services
+from .models import Calculation, CalculationItem, ChangeItem, ChangeRequest, Estimate, EstimateLine
+from .serializers import (CalculationItemSerializer, CalculationSerializer, ChangeActionSerializer, ChangeItemWriteSerializer,
+                          ChangeRequestSerializer, ChangeRequestWriteSerializer, EstimateActionSerializer, EstimateLineSerializer,
                           EstimateSerializer)
 
 LINE_KEYS = ("stage", "name", "cost_type", "unit", "quantity", "price")
@@ -212,3 +213,93 @@ class ProjectSearchView(APIView):
             "estimate_lines": [{"id": line.pk, "name": line.name, "estimate": line.estimate.number, "amount": str(line.amount)} for line in results["estimate_lines"]],
             "calculations": [{"id": calc.pk, "name": calc.name} for calc in results["calculations"]],
         })
+
+
+# ---------- changes of the approved estimate (FR11) ----------
+
+class ChangeRequestListCreateView(APIView):
+    """GET the project's change requests; POST {reason, schedule_stage?, new_end_date?} creates a draft."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, project_id):
+        project = finance_project(request, project_id)
+        changes = project.change_requests.select_related("estimate").prefetch_related("items__line", "items__stage")
+        return Response(ChangeRequestSerializer(changes, many=True).data)
+
+    def post(self, request, project_id):
+        project = finance_project(request, project_id)
+        serializer = ChangeRequestWriteSerializer(data=request.data, project=project)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        change = change_services.create_request(project=project, actor=request.user, reason=data["reason"],
+                                                schedule_stage=data["schedule_stage"], new_end_date=data["new_end_date"])
+        return Response(ChangeRequestSerializer(change).data, status=status.HTTP_201_CREATED)
+
+
+class ChangeRequestDetailView(APIView):
+    """GET one request; PATCH {reason, schedule_stage, new_end_date, revision} edits a draft; DELETE removes an own draft."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        change, project = finance_object(request, ChangeRequest, pk, "project")
+        return Response(ChangeRequestSerializer(change).data)
+
+    def patch(self, request, pk):
+        change, project = finance_object(request, ChangeRequest, pk, "project")
+        serializer = ChangeRequestWriteSerializer(data=request.data, project=project)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        change = change_services.update_request(request=change, actor=request.user, revision=data.get("revision"), reason=data["reason"],
+                                                schedule_stage=data["schedule_stage"], new_end_date=data["new_end_date"])
+        return Response(ChangeRequestSerializer(change).data)
+
+    def delete(self, request, pk):
+        change, project = finance_object(request, ChangeRequest, pk, "project")
+        change_services.delete_request(request=change, actor=request.user)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class ChangeItemCreateView(APIView):
+    """POST {action: add|update|remove, line?, stage, name, cost_type, unit, quantity, price, revision}."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        change, project = finance_object(request, ChangeRequest, pk, "project")
+        serializer = ChangeItemWriteSerializer(data=request.data, change=change)
+        serializer.is_valid(raise_exception=True)
+        data = dict(serializer.validated_data)
+        change_services.set_item(request=change, actor=request.user, revision=data.pop("revision"), action=data.pop("action"),
+                                 line=data.pop("line"), **data)
+        change.refresh_from_db()
+        return Response(ChangeRequestSerializer(change).data, status=status.HTTP_201_CREATED)
+
+
+class ChangeItemDetailView(APIView):
+    """DELETE ?revision=N removes a changed position from a draft."""
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request, pk):
+        item, project = finance_object(request, ChangeItem, pk, "request__project")
+        revision = request.query_params.get("revision") or request.data.get("revision")
+        change_services.delete_item(item=item, actor=request.user, revision=revision)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class ChangeActionView(APIView):
+    """POST {action: submit|withdraw|approve|reject, reason?, revision?}."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        change, project = finance_object(request, ChangeRequest, pk, "project")
+        serializer = ChangeActionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        action, data = serializer.validated_data["action"], serializer.validated_data
+        if action == "submit":
+            change = change_services.submit_request(request=change, actor=request.user, revision=data.get("revision"))
+        elif action == "withdraw":
+            change = change_services.withdraw_request(request=change, actor=request.user)
+        elif action == "approve":
+            change = change_services.approve_request(request=change, actor=request.user)
+        else:
+            change = change_services.reject_request(request=change, actor=request.user, reason=data["reason"])
+        return Response(ChangeRequestSerializer(change).data)

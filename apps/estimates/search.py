@@ -12,10 +12,10 @@ from apps.quality.services import visible_remarks
 from apps.repairs.task_services import visible_tasks
 from .models import Calculation, Estimate, EstimateLine
 
-APPROVAL_TYPES = [("estimate", "Смета"), ("acceptance", "Приёмка этапа")]
+APPROVAL_TYPES = [("estimate", "Смета"), ("change", "Изменение сметы"), ("acceptance", "Приёмка этапа")]
 APPROVAL_STATUSES = [("pending", "Ждёт решения"), ("approved", "Одобрено"), ("rejected", "Отклонено / возвращено"), ("other", "Прочее")]
 DECISION_STATUS = {"submit": "pending", "accept": "approved", "return": "rejected"}
-ESTIMATE_STATUS = {"pending": "pending", "approved": "approved", "rejected": "rejected", "superseded": "other", "draft": "other"}
+ESTIMATE_STATUS = {"pending": "pending", "approved": "approved", "rejected": "rejected", "superseded": "other", "draft": "other", "withdrawn": "other"}
 
 
 def parse_date(value):
@@ -38,6 +38,15 @@ def approval_items(project, user, params):
             "amount": estimate.total, "author": estimate.submitted_by, "created_at": estimate.submitted_at,
             "decided_by": estimate.decided_by, "decided_at": estimate.decided_at,
             "text": estimate.decision_reason or estimate.comment,
+        })
+    changes = project.change_requests.exclude(submitted_at__isnull=True).select_related("submitted_by", "decided_by").prefetch_related("items__line")
+    for change in changes:
+        items.append({
+            "type": "change", "type_label": "Изменение сметы", "title": f"Изменение сметы №{change.number}", "object_id": change.pk,
+            "status": ESTIMATE_STATUS[change.status], "status_label": change.get_status_display(), "raw_status": change.status,
+            "amount": change.cost_delta, "author": change.submitted_by, "created_at": change.submitted_at,
+            "decided_by": change.decided_by, "decided_at": change.decided_at,
+            "text": change.decision_reason or change.reason,
         })
     decisions = list(StageDecision.objects.filter(project=project).select_related("stage", "actor"))
     latest = {}

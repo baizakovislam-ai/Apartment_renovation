@@ -128,6 +128,9 @@ def fill_demo(project, customer, foreman):
     add_photo_report(task=plaster_task, actor=executor, description="Стены выровнены по маякам.", images=[demo_photo("Shtukaturka", (150, 150, 140))])
     run(plaster_task, foreman, ("submit", "Отклонение не более 2 мм на 2 м."), ("approve", ""))
     # 4. Finishing stays planned.
+    # 5. The foreman proposes a change of the approved estimate (60 %, FR11); it waits for the customer.
+    from .seed_milestone60 import fill_changes
+    fill_changes(project)
 
 
 class Command(BaseCommand):

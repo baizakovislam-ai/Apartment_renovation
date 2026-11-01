@@ -1,0 +1,95 @@
+{% extends 'workspace/base.html' %}{% load workspace_ui %}{% block title %}Изменение сметы №{{ change.number }}{% endblock %}{% block content %}<div class="page-title">
+<div>
+<span class="eyebrow"><a href="{% url 'workspace:estimate-changes' project.pk %}">Изменения сметы</a></span>
+<h1>Заявка №{{ change.number }} <span class="muted-text">к смете v{{ change.estimate.number }}</span></h1>
+<p>{% if change.status == 'draft' %}Черновик: отметьте, какие позиции добавить, изменить или убрать, и отправьте заказчику.{% elif change.status == 'pending' %}Заявка ждёт решения заказчика. Пока она на согласовании, её нельзя менять.{% elif change.status == 'approved' %}Изменение одобрено: по нему создана новая утверждённая версия сметы.{% elif change.status == 'rejected' %}Заказчик отклонил изменение. Если оно всё ещё нужно, создайте новую заявку с исправлениями.{% else %}Автор отозвал заявку.{% endif %}</p>
+</div>
+<div class="page-actions">{% if change.result_estimate %}<a class="button button--primary" href="{% url 'workspace:estimate-version' project.pk change.result_estimate.pk %}">{% icon 'money' %} Смета v{{ change.result_estimate.number }}</a>{% endif %}
+<a class="button button--secondary" href="{% url 'workspace:estimate-version' project.pk change.estimate.pk %}">{% icon 'money' %} Исходная смета v{{ change.estimate.number }}</a></div>
+</div>
+
+<div class="status-flow" aria-label="Статус заявки">
+<span class="{% if change.status == 'draft' %}current{% else %}done{% endif %}">1 · Черновик</span>
+<span class="{% if change.status == 'pending' %}current{% elif change.status != 'draft' %}done{% endif %}">2 · На согласовании</span>
+<span class="{% if change.status == 'approved' %}current{% elif change.status == 'rejected' or change.status == 'withdrawn' %}failed{% endif %}">3 · {% if change.status == 'rejected' %}Отклонена{% elif change.status == 'withdrawn' %}Отозвана{% else %}Одобрена{% endif %}</span>
+</div>
+
+{% if is_stale %}<div class="notice notice--warning" style="margin-bottom:18px">Смета уже изменилась после того, как составили эту заявку: она относится к версии {{ change.estimate.number }}. Одобрить её нельзя — {% if can_decide %}отклоните заявку, и автор составит новую.{% else %}удалите или отзовите её и создайте новую.{% endif %}</div>{% endif %}
+
+{% if can_decide %}<section class="card decision-banner">
+<div><span class="eyebrow">Ждёт вашего решения</span><h2>Одобрить изменение сметы на {{ effect.delta|signed_money }}?</h2>
+<p class="muted-text">Отправил(а) {{ change.submitted_by|display_name }}, {{ change.submitted_at|date:'d.m.Y H:i' }}. Смета станет {{ effect.new_total|money }}{% if change.schedule_stage %}, срок этапа «{{ change.schedule_stage.name }}» — {{ change.new_end_date|date:'d.m.Y' }}{% endif %}.</p></div>
+<div class="decision-banner__actions">
+<form method="post" action="{% url 'workspace:estimate-change-action' project.pk change.pk %}" data-once data-confirm="Одобрить изменение? Будет создана новая утверждённая версия сметы на {{ effect.new_total|money }}.">{% csrf_token %}<input type="hidden" name="action" value="approve"><button class="button button--success" type="submit" {% if is_stale %}disabled{% endif %}>{% icon 'check' %} Одобрить</button></form>
+<details class="inline-details"><summary class="button button--secondary">Отклонить…</summary>
+<form method="post" action="{% url 'workspace:estimate-change-action' project.pk change.pk %}" data-once>{% csrf_token %}<input type="hidden" name="action" value="reject"><div class="field"><label for="reject-reason">Почему не подходит</label><textarea id="reject-reason" name="reason" rows="2" required></textarea></div><button class="button button--danger" type="submit">Отклонить изменение</button></form></details>
+</div>
+</section>{% endif %}
+
+<div class="estimate-hero">
+<div class="metric"><div class="metric__icon metric__icon--blue">{% icon 'money' %}</div><span>Смета сейчас</span><strong class="money">{{ effect.old_total|money }}</strong><small>Версия {{ change.estimate.number }}</small></div>
+<div class="metric metric--accent"><div class="metric__icon metric__icon--glass">{% icon 'calc' %}</div><span>Изменение стоимости</span><strong class="money">{{ effect.delta|signed_money }}</strong><small>Позиций в заявке: {{ items|length }}</small></div>
+<div class="metric"><div class="metric__icon metric__icon--teal">{% icon 'check' %}</div><span>Смета после изменения</span><strong class="money">{{ effect.new_total|money }}</strong><small>{% if effect.budget is None %}Лимит бюджета не задан{% elif effect.over_budget %}<span class="overdue">Выше лимита на {{ effect.left_after|money|cut:'-' }}</span>{% else %}Остаток лимита: {{ effect.left_after|money }}{% endif %}</small></div>
+<div class="metric"><div class="metric__icon metric__icon--orange">{% icon 'stages' %}</div><span>Изменение сроков</span>{% if change.schedule_stage %}<strong style="font-size:18px">{% if change.days_delta > 0 %}+{% endif %}{{ change.days_delta }} дн.</strong><small>«{{ change.schedule_stage.name }}»: {{ change.current_end_date|date:'d.m.Y' }} → {{ change.new_end_date|date:'d.m.Y' }}</small>{% else %}<strong style="font-size:18px">Без изменений</strong><small>Сроки этапов не меняются</small>{% endif %}</div>
+</div>
+
+<div class="estimate-layout">
+<section class="card" id="changes">
+<div class="card__head"><div><span class="eyebrow">Изменяемые позиции</span><h2>Смета после изменения</h2></div>{% if can_edit %}<span class="badge badge--blue">Можно редактировать</span>{% else %}<span class="badge badge--gray">Только просмотр</span>{% endif %}</div>
+<div class="table-wrap">
+<table class="data-table change-table">
+<thead><tr><th>Наименование</th><th class="num">Кол-во</th><th class="num">Цена</th><th class="num">Было</th><th class="num">Стало</th><th class="num">Разница</th>{% if can_edit %}<th></th>{% endif %}</tr></thead>
+<tbody>{% for row in rows %}<tr class="change-row change-row--{{ row.kind }}">
+<td>{% if row.kind != 'same' %}<span class="badge badge--{{ row.kind|status_tone }}">{% if row.kind == 'add' %}Новая{% elif row.kind == 'update' %}Изменена{% else %}Удаляется{% endif %}</span> {% endif %}<strong>{{ row.name }}</strong>
+<small>{{ row.stage.name }}{% if row.item %}{% for label, old, new in row.item.changed_fields %} · {{ label }}: {{ old|normalize }} → {{ new|normalize }}{% endfor %}{% endif %}</small></td>
+<td class="num">{{ row.quantity|normalize }} {{ row.unit }}</td>
+<td class="num">{{ row.price|money }}</td>
+<td class="num">{% if row.kind == 'add' %}—{% else %}{{ row.old|money }}{% endif %}</td>
+<td class="num"><strong>{% if row.kind == 'remove' %}—{% else %}{{ row.new|money }}{% endif %}</strong></td>
+<td class="num">{% if row.item %}<strong class="{% if row.item.delta > 0 %}overdue{% elif row.item.delta < 0 %}success-text{% endif %}">{{ row.item.delta|signed_money }}</strong>{% else %}<span class="muted-text">—</span>{% endif %}</td>
+{% if can_edit %}<td><div class="row-actions">
+{% if row.line %}<a class="button button--ghost button--sm" href="{% url 'workspace:estimate-change-line' project.pk change.pk row.line.pk %}" aria-label="Изменить позицию {{ row.name }}" title="Изменить количество, цену…">{% icon 'edit' 16 %}</a>{% endif %}
+{% if row.line and row.kind != 'remove' %}<form method="post" action="{% url 'workspace:estimate-change-action' project.pk change.pk %}" data-once>{% csrf_token %}<input type="hidden" name="action" value="remove_line"><input type="hidden" name="line" value="{{ row.line.pk }}"><input type="hidden" name="revision" value="{{ change.revision }}"><button class="button button--ghost button--sm" type="submit" aria-label="Убрать позицию {{ row.name }} из сметы" title="Убрать из сметы">{% icon 'trash' 16 %}</button></form>{% endif %}
+{% if row.item %}<form method="post" action="{% url 'workspace:estimate-change-action' project.pk change.pk %}" data-once>{% csrf_token %}<input type="hidden" name="action" value="delete_item"><input type="hidden" name="item" value="{{ row.item.pk }}"><input type="hidden" name="revision" value="{{ change.revision }}"><button class="button button--ghost button--sm" type="submit" aria-label="Отменить изменение позиции {{ row.name }}" title="Оставить как в смете">{% icon 'close' 16 %}</button></form>{% endif %}
+</div></td>{% endif %}
+</tr>{% empty %}<tr><td colspan="7" class="muted-text">В смете нет строк.</td></tr>{% endfor %}</tbody>
+<tfoot><tr><td colspan="3">Итого</td><td class="num">{{ effect.old_total|money }}</td><td class="num">{{ effect.new_total|money }}</td><td class="num">{{ effect.delta|signed_money }}</td>{% if can_edit %}<td></td>{% endif %}</tr></tfoot>
+</table></div>
+{% if can_edit %}<form class="add-line" method="post" action="{% url 'workspace:estimate-change-action' project.pk change.pk %}" data-once>{% csrf_token %}<input type="hidden" name="action" value="add_item">{{ add_form.revision }}
+<h3>Добавить новую позицию</h3>
+<div class="form-row">{% for field in add_form.visible_fields %}<div class="field"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}</div>{% endfor %}
+<div class="field add-line__submit"><button class="button button--primary" type="submit">{% icon 'plus' %} Добавить</button></div></div>
+</form>{% endif %}
+</section>
+
+<aside class="stack">
+<section class="card decision-card">
+<span class="eyebrow">Заявка</span>
+<div class="result-box" style="margin:8px 0 12px"><small class="muted-text">Причина изменения</small><p>{{ change.reason|linebreaksbr }}</p></div>
+<p class="muted-text">Автор: {{ change.created_by|display_name }}, {{ change.created_at|date:'d.m.Y H:i' }}.</p>
+{% if change.submitted_at %}<p class="muted-text">Отправлена {{ change.submitted_at|date:'d.m.Y H:i' }}.</p>{% endif %}
+{% if change.status == 'approved' %}<p class="success-text">Одобрена {{ change.decided_by|display_name }}, {{ change.decided_at|date:'d.m.Y H:i' }}.</p>{% endif %}
+{% if change.status == 'rejected' %}<div class="notice notice--error"><strong>Отклонена:</strong> {{ change.decision_reason }}</div><p class="muted-text">{{ change.decided_by|display_name }}, {{ change.decided_at|date:'d.m.Y H:i' }}.</p>{% endif %}
+
+{% if can_edit %}<details class="inline-details" style="margin-top:8px"><summary class="button button--secondary button--block">{% icon 'edit' %} Причина и сроки</summary>
+<form method="post" action="{% url 'workspace:estimate-change-action' project.pk change.pk %}" data-once novalidate>{% csrf_token %}<input type="hidden" name="action" value="update">{{ edit_form.revision }}
+{% include 'accounts/_field.html' with field=edit_form.reason %}{% include 'accounts/_field.html' with field=edit_form.schedule_stage %}{% include 'accounts/_field.html' with field=edit_form.new_end_date %}
+<button class="button button--primary" type="submit">Сохранить</button></form></details>
+<form method="post" action="{% url 'workspace:estimate-change-action' project.pk change.pk %}" data-once style="margin-top:12px">{% csrf_token %}<input type="hidden" name="action" value="submit"><input type="hidden" name="revision" value="{{ change.revision }}">
+<button class="button button--primary button--block" type="submit" {% if not items and not change.schedule_stage %}disabled{% endif %}>{% icon 'send' %} Отправить на согласование</button></form>
+{% if not items and not change.schedule_stage %}<p class="muted-text">Отметьте хотя бы одну позицию или новый срок этапа.</p>{% endif %}
+<form method="post" action="{% url 'workspace:estimate-change-action' project.pk change.pk %}" data-confirm="Удалить черновик заявки №{{ change.number }}?" style="margin-top:8px">{% csrf_token %}<input type="hidden" name="action" value="delete"><button class="button button--ghost button--block" type="submit">{% icon 'trash' %} Удалить черновик</button></form>
+{% elif change.status == 'draft' %}<p class="muted-text">Черновик. Менять и отправлять его может только автор.</p>{% endif %}
+{% if change.status == 'pending' and is_author and not can_decide and not is_archived %}<p class="muted-text">Ждём решения заказчика. Если нужно что-то поправить, отзовите заявку и составьте новую.</p>
+<form method="post" action="{% url 'workspace:estimate-change-action' project.pk change.pk %}" data-once data-confirm="Отозвать заявку №{{ change.number }}?">{% csrf_token %}<input type="hidden" name="action" value="withdraw"><button class="button button--secondary button--block" type="submit">Отозвать заявку</button></form>
+{% elif change.status == 'pending' and not can_decide %}<p class="muted-text">Ждём решения заказчика.</p>{% endif %}
+{% if change.status == 'pending' and is_author and can_decide %}<form method="post" action="{% url 'workspace:estimate-change-action' project.pk change.pk %}" data-once style="margin-top:8px">{% csrf_token %}<input type="hidden" name="action" value="withdraw"><button class="button button--ghost button--block" type="submit">Отозвать заявку</button></form>{% endif %}
+</section>
+<section class="card"><span class="eyebrow">Бюджет</span><h2 style="margin:4px 0 12px">Влияние на лимит</h2>
+<div class="breakdown">
+<div class="breakdown__row"><span>Лимит бюджета</span><strong class="money">{{ effect.budget|money }}</strong></div>
+<div class="breakdown__row"><span>Остаток до изменения</span><strong class="money">{% if effect.left_before is None %}—{% else %}{{ effect.left_before|money }}{% endif %}</strong></div>
+<div class="breakdown__row"><span>Остаток после изменения</span><strong class="money {% if effect.over_budget %}overdue{% endif %}">{% if effect.left_after is None %}—{% else %}{{ effect.left_after|money }}{% endif %}</strong></div>
+</div></section>
+</aside>
+</div>{% endblock %}

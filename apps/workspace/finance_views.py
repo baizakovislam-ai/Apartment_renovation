@@ -1,4 +1,4 @@
-"""Pages for the estimate, its approval, works start, preliminary calculations, approvals journal and project search."""
+"""Pages for the estimate, its approval and changes, works start, preliminary calculations, approvals journal and project search."""
 from decimal import Decimal
 
 from django.contrib import messages
@@ -9,11 +9,12 @@ from django.urls import reverse
 from django.views.decorators.http import require_POST
 from rest_framework.exceptions import APIException
 
+from apps.estimates import change_services
 from apps.estimates import search as search_service
 from apps.estimates import services as estimate_services
-from apps.estimates.models import UNIT_SUGGESTIONS, CostType, Estimate
+from apps.estimates.models import UNIT_SUGGESTIONS, ChangeItem, ChangeRequest, CostType, Estimate, EstimateLine
 from apps.projects.permissions import active_membership, require_manager
-from .forms import CalculationForm, CalculationItemForm, EstimateLineForm
+from .forms import CalculationForm, CalculationItemForm, ChangeItemForm, ChangeRequestForm, EstimateLineForm
 from .views import check_permission, context, form_service_error, own_project, run_service
 
 
@@ -52,7 +53,9 @@ def estimate_page(request, project_id, estimate_id=None):
         versions=project.estimates.select_related("created_by", "decided_by"), unit_options=UNIT_SUGGESTIONS,
         open_estimate=estimate_services.open_estimate(project), approved=estimate_services.approved_estimate(project),
         start_blockers=estimate_services.start_blockers(project) if project.status == "planning" else [],
-        is_foreman=membership.role == "foreman", calculations=project.calculations.all()[:5]))
+        is_foreman=membership.role == "foreman", calculations=project.calculations.all()[:5],
+        open_changes=change_services.open_requests(project).select_related("created_by"),
+        source_change=getattr(estimate, "source_change", None) if estimate else None))
 
 
 @login_required
@@ -140,6 +143,147 @@ def start_works(request, project_id):
     run_service(request, lambda: estimate_services.start_works(project=project, actor=request.user),
                 "Работы запущены. Теперь прораб может начинать этапы, а исполнители — задачи.")
     return redirect(request.POST.get("next") or estimate_url(project))
+
+
+# ---------- Changes of the approved estimate (FR11) ----------
+
+def change_url(project, change, anchor=""):
+    return reverse("workspace:estimate-change", args=[project.pk, change.pk]) + anchor
+
+
+def form_errors(form):
+    return "; ".join(f"{form.fields[name].label}: {' '.join(errors)}" if name in form.fields else " ".join(errors)
+                     for name, errors in form.errors.items())
+
+
+@login_required
+def change_list(request, project_id):
+    project = finance_project(request, project_id)
+    approved = estimate_services.approved_estimate(project)
+    form = ChangeRequestForm(request.POST or None, project=project)
+    if request.method == "POST":
+        if form.is_valid():
+            data = form.cleaned_data
+            try:
+                change = change_services.create_request(project=project, actor=request.user, reason=data["reason"],
+                                                        schedule_stage=data["schedule_stage"], new_end_date=data["new_end_date"])
+            except APIException as error:
+                form_service_error(form, error)
+            else:
+                messages.success(request, f"Заявка №{change.number} создана. Отметьте, какие позиции меняются, и отправьте на согласование.")
+                return redirect(change_url(project, change))
+    changes = list(project.change_requests.select_related("created_by", "decided_by", "estimate", "result_estimate", "schedule_stage")
+                   .prefetch_related("items__line"))
+    status = request.GET.get("status", "")
+    if status in ChangeRequest.Status.values:
+        shown = [change for change in changes if change.status == status]
+    else:
+        status, shown = "", changes
+    return render(request, "workspace/estimate_changes.html", context(
+        request, project, "estimate-changes", approved=approved, form=form, changes=shown, status=status,
+        statuses=ChangeRequest.Status.choices, counts={value: sum(1 for c in changes if c.status == value) for value in ChangeRequest.Status.values},
+        open_estimate=estimate_services.open_estimate(project)))
+
+
+@login_required
+def change_detail(request, project_id, change_id):
+    project = finance_project(request, project_id)
+    membership = active_membership(project, request.user)
+    change = get_object_or_404(project.change_requests.select_related("estimate", "created_by", "submitted_by", "decided_by",
+                                                                       "result_estimate", "schedule_stage"), pk=change_id)
+    can_edit = change.is_editable and change_services.is_author(change, request.user) and not project.is_archived
+    approved = estimate_services.approved_estimate(project)
+    return render(request, "workspace/estimate_change.html", context(
+        request, project, "estimate-changes", change=change, rows=change_services.preview(change),
+        effect=change_services.budget_effect(change), can_edit=can_edit,
+        can_decide=change_services.can_decide(change, membership) and not project.is_archived,
+        is_author=change_services.is_author(change, request.user), is_stale=change.is_open and approved != change.estimate,
+        add_form=ChangeItemForm(change=change) if can_edit else None,
+        edit_form=ChangeRequestForm(project=project, change=change) if can_edit else None,
+        items=list(change.items.select_related("line", "stage")), unit_options=UNIT_SUGGESTIONS))
+
+
+@login_required
+@require_POST
+def change_action(request, project_id, change_id):
+    project = finance_project(request, project_id)
+    change = get_object_or_404(project.change_requests, pk=change_id)
+    action, post, user = request.POST.get("action"), request.POST, request.user
+    revision = post.get("revision")
+    if action == "update":
+        form = ChangeRequestForm(post, project=project, change=change)
+        if form.is_valid():
+            data = form.cleaned_data
+            run_service(request, lambda: change_services.update_request(
+                request=change, actor=user, revision=revision, reason=data["reason"], schedule_stage=data["schedule_stage"],
+                new_end_date=data["new_end_date"]), "Заявка сохранена.")
+        else:
+            messages.error(request, "Заявка не сохранена: " + form_errors(form))
+        return redirect(change_url(project, change))
+    if action == "add_item":
+        form = ChangeItemForm(post, change=change)
+        if form.is_valid():
+            data = dict(form.cleaned_data)
+            data.pop("revision")
+            run_service(request, lambda: change_services.set_item(request=change, actor=user, revision=revision, action="add", **data),
+                        f"Новая позиция «{data['name']}» добавлена в заявку.")
+        else:
+            messages.error(request, "Позиция не добавлена: " + form_errors(form))
+        return redirect(change_url(project, change, "#changes"))
+    if action == "remove_line":
+        line = get_object_or_404(EstimateLine, pk=post.get("line") or 0, estimate=change.estimate)
+        run_service(request, lambda: change_services.set_item(request=change, actor=user, revision=revision, action="remove", line=line),
+                    f"Позиция «{line.name}» будет удалена из сметы.")
+        return redirect(change_url(project, change, "#changes"))
+    if action == "delete_item":
+        item = get_object_or_404(ChangeItem, pk=post.get("item") or 0, request=change)
+        run_service(request, lambda: change_services.delete_item(item=item, actor=user, revision=revision), "Изменение позиции отменено.")
+        return redirect(change_url(project, change, "#changes"))
+    if action == "delete":
+        if run_service(request, lambda: change_services.delete_request(request=change, actor=user), f"Черновик заявки №{change.number} удалён."):
+            return redirect("workspace:estimate-changes", project_id=project.pk)
+        return redirect(change_url(project, change))
+    calls = {
+        "submit": (lambda: change_services.submit_request(request=change, actor=user, revision=revision),
+                   "Заявка отправлена заказчику на согласование."),
+        "withdraw": (lambda: change_services.withdraw_request(request=change, actor=user), "Заявка отозвана."),
+        "approve": (lambda: change_services.approve_request(request=change, actor=user),
+                    "Изменение одобрено: создана новая утверждённая версия сметы."),
+        "reject": (lambda: change_services.reject_request(request=change, actor=user, reason=post.get("reason", "")),
+                   "Изменение отклонено. Автор увидит причину."),
+    }
+    if action not in calls:
+        raise Http404
+    run_service(request, *calls[action])
+    return redirect(change_url(project, change))
+
+
+@login_required
+def change_line_edit(request, project_id, change_id, line_id):
+    """New values for one line of the approved estimate (an «update» item of the request)."""
+    project = finance_project(request, project_id)
+    change = get_object_or_404(project.change_requests.select_related("estimate"), pk=change_id)
+    line = get_object_or_404(EstimateLine.objects.select_related("stage"), pk=line_id, estimate=change.estimate)
+    if not (change.is_editable and change_services.is_author(change, request.user)):
+        messages.error(request, "Менять позиции можно только в своём черновике заявки.")
+        return redirect(change_url(project, change))
+    current = change.items.filter(line=line, action=ChangeItem.Action.UPDATE).first()
+    form = ChangeItemForm(request.POST or None, change=change, source=current or line)
+    if request.method == "POST" and form.is_valid():
+        data = dict(form.cleaned_data)
+        revision = data.pop("revision")
+        try:
+            change_services.set_item(request=change, actor=request.user, revision=revision, action="update", line=line, **data)
+        except APIException as error:
+            form_service_error(form, error)
+        else:
+            messages.success(request, f"Новые значения позиции «{line.name}» записаны в заявку.")
+            return redirect(change_url(project, change, "#changes"))
+    return render(request, "workspace/form.html", context(
+        request, project, "estimate-changes", form=form, title=f"Изменить позицию «{line.name}»", section="позиции",
+        subtitle=(f"Сейчас в смете: {line.quantity.normalize():f} {line.unit} × {line.price} сом = {line.amount} сом. "
+                  f"Укажите новые значения — разница в стоимости посчитается сама."),
+        cancel_url="workspace:estimate-changes", unit_options=UNIT_SUGGESTIONS))
 
 
 # ---------- Preliminary calculation (FR16) ----------
