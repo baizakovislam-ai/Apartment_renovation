@@ -707,3 +707,9 @@ a.attention__item:hover strong { color: var(--brand); }
 .add-line .pick-form-row { grid-template-columns: 3fr 1fr auto; }
 @media (max-width: 1180px) { .add-line .price-form-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 720px) { .add-line .price-form-row, .add-line .pick-form-row { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---------- final report (FR21) ---------- */
+.report-facts { display: grid; grid-template-columns: minmax(140px, 220px) 1fr; gap: 8px 16px; margin: 0 0 14px; font-size: 14px; }
+.report-facts dt { color: var(--muted); }
+.report-facts dd { margin: 0; }
+@media (max-width: 720px) { .report-facts { grid-template-columns: minmax(0, 1fr); gap: 2px; } .report-facts dd { margin-bottom: 8px; } }

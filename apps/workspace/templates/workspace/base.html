@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0d1729">
 <title>{% block title %}Рабочее пространство{% endblock %} — Контроль ремонта</title>
 <link rel="icon" href="{% static 'workspace/renovation-icon.svg' %}">
-<link rel="stylesheet" href="{% static 'workspace/ui.css' %}?v=81">
+<link rel="stylesheet" href="{% static 'workspace/ui.css' %}?v=82">
 <script src="{% static 'workspace/app.js' %}?v=80" defer></script>
 </head>
 <body>
@@ -35,6 +35,7 @@
 <a class="nav__item {% if page == 'calculations' %}nav__item--active{% endif %}" href="{% url 'workspace:calculations' project.pk %}">{% icon 'calc' %}<span>Предварительный расчёт</span></a>
 <a class="nav__item {% if page == 'project-price-list' %}nav__item--active{% endif %}" href="{% url 'workspace:project-price-list' project.pk %}">{% icon 'tag' %}<span>Прайс-лист прораба</span></a>
 <a class="nav__item {% if page == 'approvals' %}nav__item--active{% endif %}" href="{% url 'workspace:approvals' project.pk %}">{% icon 'stamp' %}<span>Согласования</span></a>
+<a class="nav__item {% if page == 'report' %}nav__item--active{% endif %}" href="{% url 'workspace:report' project.pk %}">{% icon 'report' %}<span>Итоговый отчёт</span></a>
 <a class="nav__item {% if page == 'acceptance' %}nav__item--active{% endif %}" href="{% url 'workspace:acceptance' project.pk %}">{% icon 'check' %}<span>Приёмка работ</span></a>
 <a class="nav__item {% if page == 'history' %}nav__item--active{% endif %}" href="{% url 'workspace:history' project.pk %}">{% icon 'history' %}<span>История изменений</span></a>{% endif %}{% endif %}
 </nav>
