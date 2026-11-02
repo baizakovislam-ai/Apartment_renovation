@@ -1,0 +1,49 @@
+{% extends 'workspace/base.html' %}{% load workspace_ui %}{% block title %}{% if own %}Мой прайс-лист{% else %}Прайс-лист прораба{% endif %}{% endblock %}{% block content %}<div class="page-title">
+<div>
+<span class="eyebrow">{% if own or not_foreman %}Рабочее пространство{% else %}Деньги и согласования{% endif %}</span>
+<h1>{% if own or not_foreman %}Мой прайс-лист{% else %}Прайс-лист прораба{% endif %}</h1>
+<p>{% if not_foreman %}Список работ прораба с ценами за единицу.{% elif own %}Ваши работы и цены за единицу. Их можно подставлять в предварительный расчёт в проектах, где вы прораб. Изменение цены не меняет уже сделанные расчёты и утверждённые сметы.{% elif foreman %}Цены прораба {{ foreman|display_name }}. Работу из этого списка можно добавить в предварительный расчёт — цена подставится сама.{% else %}В проекте пока нет прораба — прайс-лист появится, когда он присоединится.{% endif %}</p>
+</div>
+{% if is_own_list %}<a class="button button--secondary" href="{% url 'workspace:price-list' %}">{% icon 'edit' %} Редактировать мой прайс-лист</a>
+{% elif not own and not not_foreman %}<a class="button button--secondary" href="{% url 'workspace:calculations' project.pk %}">{% icon 'calc' %} К предварительному расчёту</a>{% endif %}
+</div>
+
+{% if not_foreman %}<div class="empty-state">{% icon 'tag' %}<h3>Прайс-лист недоступен</h3><p>{{ not_foreman }}</p><a class="button button--secondary" href="{% url 'workspace:projects' %}">{% icon 'projects' %} Мои проекты</a></div>
+{% else %}
+{% if total_count %}<div class="tabs-bar">
+<a href="?{% if filters.q %}q={{ filters.q|urlencode }}{% endif %}" class="{% if not filters.category %}active{% endif %}">Все <b>{{ total_count }}</b></a>
+{% for value, label, count in category_tabs %}<a href="?category={{ value }}{% if filters.q %}&q={{ filters.q|urlencode }}{% endif %}" class="{% if filters.category == value %}active{% endif %}">{{ label }} <b>{{ count }}</b></a>{% endfor %}
+</div>
+<form class="toolbar filter-form" method="get">
+{% if filters.category %}<input type="hidden" name="category" value="{{ filters.category }}">{% endif %}
+<label class="search">{% icon 'search' %}<input name="q" value="{{ filters.q }}" placeholder="Поиск работы по названию" aria-label="Поиск работы"></label>
+<button class="button button--secondary" type="submit">Найти</button>
+{% if has_filters %}<a href="?">Сбросить</a>{% endif %}
+<span class="muted-text">Найдено: {{ items|length }}</span>
+</form>{% endif %}
+
+<section class="card">
+<div class="card__head"><div><span class="eyebrow">Позиции</span><h2>Работы и цены</h2></div><span class="counter">{{ items|length }}</span></div>
+{% if items %}<div class="table-wrap"><table class="data-table">
+<thead><tr><th>Работа</th><th>Категория</th><th>Ед.</th><th class="num">Цена за ед.</th><th>Обновлена</th>{% if own %}<th></th>{% endif %}</tr></thead>
+<tbody>{% for item in items %}<tr>
+<td><strong>{% if filters.q %}{{ item.name|highlight:filters.q }}{% else %}{{ item.name }}{% endif %}</strong></td>
+<td><span class="badge">{{ item.get_category_display }}</span></td>
+<td>{{ item.unit }}</td>
+<td class="num"><strong>{{ item.price|money }}</strong></td>
+<td><small class="muted-text">{{ item.updated_at|date:'d.m.Y' }}</small></td>
+{% if own %}<td><div class="row-actions"><a class="button button--ghost button--sm" href="{% url 'workspace:price-item-edit' item.pk %}" aria-label="Изменить {{ item.name }}">{% icon 'edit' 16 %}</a>
+<form method="post" action="{% url 'workspace:price-item-delete' item.pk %}" data-confirm="Удалить «{{ item.name }}» из прайс-листа? Сделанные расчёты не изменятся.">{% csrf_token %}<button class="button button--ghost button--sm" type="submit" aria-label="Удалить {{ item.name }}">{% icon 'trash' 16 %}</button></form></div></td>{% endif %}
+</tr>{% endfor %}</tbody>
+</table></div>
+{% elif has_filters %}<div class="empty-state compact">{% icon 'search' %}<h3>Ничего не найдено</h3><p>Измените запрос или <a href="?">сбросьте фильтры</a>.</p></div>
+{% else %}<div class="empty-state compact">{% icon 'tag' %}<h3>Прайс-лист пуст</h3><p>{% if own %}Добавьте первую работу ниже: например, «Штукатурка стен», м², 450 сом.{% else %}Прораб ещё не добавил работы в свой прайс-лист.{% endif %}</p></div>{% endif %}
+
+{% if own %}<form class="add-line" method="post" novalidate data-once>{% csrf_token %}
+<h3>Добавить работу</h3>
+{% if form.non_field_errors %}<div class="notice notice--error" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+<div class="form-row price-form-row">{% for field in form %}<div class="field{% if field.errors %} has-error{% endif %}"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% if field.errors %}<div class="errors">{{ field.errors }}</div>{% endif %}</div>{% endfor %}
+<div class="field add-line__submit"><button class="button button--primary" type="submit">{% icon 'plus' %} Добавить</button></div></div>
+<p class="muted-text" style="margin-top:10px">Одна работа с одной единицей измерения — одна цена. Чтобы поменять цену, нажмите ✎ у позиции.</p>
+</form>{% endif %}
+</section>{% endif %}{% endblock %}

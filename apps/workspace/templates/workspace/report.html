@@ -1,0 +1,74 @@
+{% extends 'workspace/base.html' %}{% load workspace_ui %}{% block title %}Итоговый отчёт{% endblock %}{% block content %}<div class="page-title">
+<div>
+<span class="eyebrow">Деньги и согласования</span>
+<h1>Итоговый отчёт</h1>
+<p>Сведения о проекте, этапах и сроках, смете, расходах, выполненных работах и замечаниях на {{ report.generated_at|date:'d.m.Y H:i' }}. Скачайте его в PDF, чтобы отправить или распечатать.</p>
+</div>
+<a class="button button--primary" href="{% url 'workspace:report-pdf' project.pk %}">{% icon 'download' %} Скачать PDF</a>
+</div>
+
+<div class="metrics">
+<div class="metric metric--accent"><div class="metric__icon metric__icon--glass">{% icon 'money' %}</div><span>Итоговая стоимость</span><strong class="money">{{ report.final_cost|money }}</strong><small>{% if report.cost_source %}По {{ report.cost_source }}{% else %}Нет утверждённой сметы{% endif %}</small></div>
+<div class="metric"><div class="metric__icon {% if report.budget_left is not None and report.budget_left < 0 %}metric__icon--orange{% else %}metric__icon--green{% endif %}">{% icon 'check' %}</div><span>{% if report.budget_left is not None and report.budget_left < 0 %}Превышение лимита{% else %}Остаток лимита{% endif %}</span><strong class="money">{% if report.budget_left is None %}—{% else %}{{ report.budget_left|money|cut:'-' }}{% endif %}</strong><small>Лимит бюджета: {{ report.budget|money }}</small></div>
+<div class="metric"><div class="metric__icon metric__icon--blue">{% icon 'report' %}</div><span>Готовность</span><strong>{{ report.progress.percent }} %</strong><small>Принято этапов: {{ report.progress.stages_accepted }} из {{ report.progress.stages_total }}</small></div>
+<div class="metric"><div class="metric__icon metric__icon--teal">{% icon 'flag' %}</div><span>Замечания</span><strong>{{ report.remarks|length }}</strong><small>Не закрыто: {{ report.remarks_open }}</small></div>
+</div>
+
+<section class="card">
+<div class="card__head"><div><span class="eyebrow">1</span><h2>Информация о проекте</h2></div></div>
+<dl class="report-facts">
+<dt>Адрес</dt><dd>{{ project.address|default:'—' }}</dd>
+<dt>Площадь</dt><dd>{% if project.area %}{{ project.area|normalize }} м²{% else %}—{% endif %}</dd>
+<dt>Статус</dt><dd>{{ project.get_status_display }}</dd>
+<dt>Заказчик</dt><dd>{% if report.customer %}{{ report.customer|display_name }}{% else %}—{% endif %}</dd>
+<dt>Прораб</dt><dd>{% if report.foreman %}{{ report.foreman|display_name }}{% else %}—{% endif %}</dd>
+<dt>Исполнители</dt><dd>{% for user in report.executors %}{{ user|display_name }}{% if not forloop.last %}, {% endif %}{% empty %}—{% endfor %}</dd>
+</dl>
+</section>
+
+<section class="card" style="margin-top:16px">
+<div class="card__head"><div><span class="eyebrow">2</span><h2>Этапы и сроки</h2></div><span class="counter">{{ report.stages|length }}</span></div>
+<dl class="report-facts">
+<dt>Плановые сроки</dt><dd>{{ report.schedule.planned_start|date:'d.m.Y'|default:'—' }} — {{ report.schedule.planned_end|date:'d.m.Y'|default:'—' }}</dd>
+<dt>Фактическое окончание</dt><dd>{% if report.schedule.actual_end %}{{ report.schedule.actual_end|date:'d.m.Y' }}{% if report.schedule.days_late %} ({{ report.schedule.days_late|stringformat:'+d' }} дн.){% endif %}{% else %}работы ещё не приняты полностью{% endif %}</dd>
+<dt>С нарушением срока</dt><dd>{{ report.schedule.late_stages }} этап(ов)</dd>
+</dl>
+{% if report.stages %}<div class="table-wrap"><table class="data-table">
+<thead><tr><th>Этап</th><th>Статус</th><th>Ответственный</th><th>План</th><th>Принят</th><th class="num">Готово</th></tr></thead>
+<tbody>{% for row in report.stages %}<tr>
+<td><strong>{{ row.stage.name }}</strong>{% if row.days_late %}<small class="overdue">Просрочка {{ row.days_late }} дн.</small>{% endif %}</td>
+<td><span class="badge">{{ row.stage.get_status_display }}</span></td>
+<td>{{ row.stage.responsible.user|display_name }}</td>
+<td>{{ row.stage.start_date|date:'d.m.Y' }} — {{ row.stage.end_date|date:'d.m.Y' }}</td>
+<td>{{ row.accepted_at|date:'d.m.Y'|default:'—' }}</td>
+<td class="num">{{ row.progress }} %</td>
+</tr>{% endfor %}</tbody></table></div>{% endif %}
+</section>
+
+<section class="card" style="margin-top:16px">
+<div class="card__head"><div><span class="eyebrow">3–4</span><h2>Смета и расходы</h2></div>{% if report.estimate.approved %}<a class="button button--ghost button--sm" href="{% url 'workspace:estimate' project.pk %}">Открыть смету</a>{% endif %}</div>
+{% if report.estimate.approved %}<dl class="report-facts">
+<dt>Утверждённая смета</dt><dd>версия {{ report.estimate.approved.number }} от {{ report.estimate.approved.decided_at|date:'d.m.Y' }}, {{ report.estimate.summary.lines|length }} позиций</dd>
+<dt>Первоначальная стоимость</dt><dd>{{ report.estimate.initial_total|money }}</dd>
+<dt>Одобренные изменения</dt><dd>{{ report.estimate.changes|length }} заявк. на {{ report.estimate.changes_total|signed_money }}</dd>
+<dt>Итого по смете</dt><dd><strong>{{ report.estimate.approved.total|money }}</strong></dd>
+</dl>{% else %}<p class="muted-text">Утверждённой сметы нет.</p>{% endif %}
+<p class="muted-text" style="margin-top:10px">{% if report.expenses is None %}Учёт фактических расходов в системе пока не ведётся, поэтому итоговая стоимость указана по утверждённой смете с учётом одобренных изменений.{% else %}Подтверждённых расходов: {{ report.expenses|length }}.{% endif %} Полная таблица сметы — в PDF.</p>
+</section>
+
+<section class="card" style="margin-top:16px">
+<div class="card__head"><div><span class="eyebrow">5</span><h2>Выполненные работы</h2></div><span class="counter">{{ report.done_tasks|length }}</span></div>
+<p class="muted-text">Выполнено задач: {{ report.progress.tasks_done }} из {{ report.progress.tasks_total }}. Фотоотчётов: {{ report.photo_reports }}.</p>
+{% if report.done_tasks %}<div class="table-wrap"><table class="data-table">
+<thead><tr><th>Работа</th><th>Этап</th><th>Исполнитель</th><th>Выполнена</th></tr></thead>
+<tbody>{% for task in report.done_tasks %}<tr><td><strong>{{ task.name }}</strong>{% if task.result %}<small>{{ task.result|truncatechars:90 }}</small>{% endif %}</td><td>{{ task.stage.name }}</td><td>{{ task.assignee.user|display_name }}</td><td>{{ task.completed_at|date:'d.m.Y'|default:'—' }}</td></tr>{% endfor %}</tbody>
+</table></div>{% endif %}
+</section>
+
+<section class="card" style="margin-top:16px">
+<div class="card__head"><div><span class="eyebrow">6</span><h2>Замечания</h2></div><span class="counter">{{ report.remarks|length }}</span></div>
+{% if report.remarks %}<div class="table-wrap"><table class="data-table">
+<thead><tr><th>Замечание</th><th>Этап</th><th>Ответственный</th><th>Статус</th></tr></thead>
+<tbody>{% for remark in report.remarks %}<tr><td>{{ remark.description|truncatechars:110 }}</td><td>{{ remark.stage.name }}</td><td>{{ remark.responsible.user|display_name }}</td><td><span class="badge">{{ remark.get_status_display }}</span></td></tr>{% endfor %}</tbody>
+</table></div>{% else %}<p class="muted-text">Замечаний не было.</p>{% endif %}
+</section>{% endblock %}

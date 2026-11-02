@@ -13,8 +13,9 @@ from apps.estimates import change_services
 from apps.estimates import search as search_service
 from apps.estimates import services as estimate_services
 from apps.estimates.models import UNIT_SUGGESTIONS, ChangeItem, ChangeRequest, CostType, Estimate, EstimateLine
+from apps.pricing import services as price_services
 from apps.projects.permissions import active_membership, require_manager
-from .forms import CalculationForm, CalculationItemForm, ChangeItemForm, ChangeRequestForm, EstimateLineForm
+from .forms import CalculationForm, CalculationItemForm, ChangeItemForm, ChangeRequestForm, EstimateLineForm, FromPriceListForm
 from .views import check_permission, context, form_service_error, own_project, run_service
 
 
@@ -310,11 +311,13 @@ def calculation_detail(request, project_id, calculation_id):
     calculation = get_object_or_404(project.calculations.select_related("created_by"), pk=calculation_id)
     items = list(calculation.items.all())
     open_estimate = estimate_services.open_estimate(project)
+    price_list = price_services.project_price_list(project)
     by_type = {}
     for item in items:
         by_type[item.get_cost_type_display()] = by_type.get(item.get_cost_type_display(), Decimal("0")) + item.amount
     return render(request, "workspace/calculation_detail.html", context(
         request, project, "calculations", calculation=calculation, items=items, item_form=CalculationItemForm(),
+        price_form=FromPriceListForm(items=price_list) if price_list else None, price_foreman=price_services.project_foreman(project),
         edit_form=CalculationForm(initial={"name": calculation.name, "note": calculation.note}), unit_options=UNIT_SUGGESTIONS,
         stages=project.stages.exclude(status="cancelled"), open_estimate=open_estimate,
         can_transfer=open_estimate is None or open_estimate.is_editable,
@@ -338,6 +341,14 @@ def calculation_update(request, project_id, calculation_id):
         if form.is_valid():
             run_service(request, lambda: estimate_services.add_item(calculation=calculation, actor=request.user, **form.cleaned_data),
                         f"Добавлено: {form.cleaned_data['work']}.")
+        else:
+            messages.error(request, "Позиция не добавлена: " + "; ".join(f"{form.fields[name].label}: {' '.join(errors)}" for name, errors in form.errors.items() if name in form.fields))
+    elif action == "from_price_list":
+        form = FromPriceListForm(request.POST, items=price_services.project_price_list(project))
+        if form.is_valid():
+            price_item = form.cleaned_data["price_item"]
+            run_service(request, lambda: price_services.add_to_calculation(calculation=calculation, actor=request.user, price_item=price_item,
+                        volume=form.cleaned_data["volume"]), f"Добавлено из прайс-листа: {price_item.name} по {price_item.price:.2f} сом/{price_item.unit}.")
         else:
             messages.error(request, "Позиция не добавлена: " + "; ".join(f"{form.fields[name].label}: {' '.join(errors)}" for name, errors in form.errors.items() if name in form.fields))
     elif action == "to_estimate":
