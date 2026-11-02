@@ -713,3 +713,16 @@ a.attention__item:hover strong { color: var(--brand); }
 .report-facts dt { color: var(--muted); }
 .report-facts dd { margin: 0; }
 @media (max-width: 720px) { .report-facts { grid-template-columns: minmax(0, 1fr); gap: 2px; } .report-facts dd { margin-bottom: 8px; } }
+
+/* ---------- отправка фотоотчёта в мессенджеры ---------- */
+.share-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
+.share-bar__label { font-size: 12.5px; font-weight: 600; color: var(--muted); }
+.share-chip { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--ink-2); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; text-decoration: none; transition: background .15s, border-color .15s, color .15s; }
+.share-chip:hover { background: var(--surface-2); border-color: #c9d3e5; color: var(--ink); }
+.share-chip--whatsapp { color: #128c4a; border-color: #bfe8cf; }
+.share-chip--whatsapp:hover { background: #ecfaf1; color: #0b6b37; border-color: #9fdcb7; }
+.share-chip--telegram { color: #1d7fc4; border-color: #bfdcf2; }
+.share-chip--telegram:hover { background: #ebf5fd; color: #135f95; border-color: #9cc9ea; }
+.share-chip--viber { color: #6a3fb5; border-color: #d8cbf0; }
+.share-chip--viber:hover { background: #f4effc; color: #522d93; border-color: #c2aeea; }
+@media print { .share-bar { display: none !important; } }

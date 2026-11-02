@@ -51,3 +51,45 @@ document.querySelectorAll("[data-fill-volume]").forEach(button => button.addEven
   if (unit && !unit.value) unit.value = "м²";
   input.focus();
 }));
+// «Отправить фотоотчёт» в мессенджеры: WhatsApp, Telegram, Viber, почта, системное меню «Поделиться» с фото.
+document.querySelectorAll("[data-share]").forEach(bar => {
+  const url = `${location.origin}${location.pathname}#${bar.dataset.shareAnchor}`;
+  const title = bar.dataset.shareTitle;
+  const text = bar.dataset.shareText;
+  const full = `${text}\n${url}`;
+  const enc = encodeURIComponent;
+  const links = {
+    whatsapp: `https://wa.me/?text=${enc(full)}`,
+    telegram: `https://t.me/share/url?url=${enc(url)}&text=${enc(text)}`,
+    viber: `viber://forward?text=${enc(full)}`,
+    email: `mailto:?subject=${enc(title)}&body=${enc(full)}`,
+  };
+  bar.querySelectorAll("[data-share-to]").forEach(link => { link.href = links[link.dataset.shareTo]; });
+
+  const copy = bar.querySelector("[data-share-copy]");
+  copy?.addEventListener("click", async () => {
+    try { await navigator.clipboard.writeText(full); copy.lastChild.textContent = " Скопировано"; }
+    catch { window.prompt("Скопируйте текст:", full); }
+  });
+
+  // Системное меню «Поделиться» умеет передавать сами фотографии (Android, iOS, Windows).
+  const native = bar.querySelector("[data-share-native]");
+  if (!native || !navigator.share) return;
+  native.hidden = false;
+  native.addEventListener("click", async () => {
+    native.disabled = true;
+    try {
+      const photos = (bar.dataset.sharePhotos || "").split(" ").filter(Boolean);
+      const files = await Promise.all(photos.map(async (src, i) => {
+        const blob = await (await fetch(src, { credentials: "same-origin" })).blob();
+        const ext = (blob.type.split("/")[1] || "jpg").replace("jpeg", "jpg");
+        return new File([blob], `foto-${i + 1}.${ext}`, { type: blob.type });
+      }));
+      const data = { title, text: full };
+      if (files.length && navigator.canShare?.({ files })) data.files = files;
+      await navigator.share(data);
+    } catch (error) {
+      if (error?.name !== "AbortError") console.warn("Не удалось поделиться фотоотчётом", error);
+    } finally { native.disabled = false; }
+  });
+});

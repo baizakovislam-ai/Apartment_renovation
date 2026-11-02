@@ -26,6 +26,15 @@
 <div class="photo-report__head"><span class="avatar">{{ report.author|initials }}</span><div><strong>{{ report.author|display_name }}</strong><small>{{ report.created_at|date:'d E Y, H:i' }}</small></div></div>
 <p class="prose">{{ report.description|linebreaksbr }}</p>
 <div class="photo-grid">{% for photo in report.photos.all %}<a href="{% url 'photo-file' photo.pk %}" target="_blank" rel="noopener"><img src="{% url 'photo-file' photo.pk %}" alt="Фото к задаче «{{ task.name }}»" loading="lazy" width="{{ photo.width }}" height="{{ photo.height }}"></a>{% endfor %}</div>
+<div class="share-bar" id="report-{{ report.pk }}" data-share data-share-anchor="report-{{ report.pk }}" data-share-title="Фотоотчёт: {{ task.name }}" data-share-text="Фотоотчёт по задаче «{{ task.name }}» ({{ report.author|display_name }}, {{ report.created_at|date:'d.m.Y H:i' }}): {{ report.description }}" data-share-photos="{% for photo in report.photos.all %}{% url 'photo-file' photo.pk %}{% if not forloop.last %} {% endif %}{% endfor %}">
+<span class="share-bar__label">Отправить:</span>
+<button class="button button--secondary button--sm" type="button" data-share-native hidden>{% icon 'send' 16 %} С фото…</button>
+<a class="share-chip share-chip--whatsapp" data-share-to="whatsapp" href="#" target="_blank" rel="noopener">WhatsApp</a>
+<a class="share-chip share-chip--telegram" data-share-to="telegram" href="#" target="_blank" rel="noopener">Telegram</a>
+<a class="share-chip share-chip--viber" data-share-to="viber" href="#">Viber</a>
+<a class="share-chip" data-share-to="email" href="#">Почта</a>
+<button class="share-chip" type="button" data-share-copy>{% icon 'copy' 14 %} Копировать</button>
+</div>
 </article>{% empty %}<p class="muted-text">Фотоотчётов пока нет.</p>{% endfor %}
 {% if task.stage.status != 'cancelled' %}<form class="report-form" method="post" action="{% url 'workspace:photo-report-create' project.pk task.pk %}" enctype="multipart/form-data" data-once>{% csrf_token %}
 <input type="hidden" name="request_id" value="{{ report_request_id }}">
