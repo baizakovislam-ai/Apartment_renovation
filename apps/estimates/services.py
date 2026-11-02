@@ -99,6 +99,9 @@ def create_draft(*, project, actor):
     require_finance_access(project, actor)
     if open_estimate(project):
         raise ValidationError("Уже есть смета в работе (черновик или на согласовании).")
+    if approved_estimate(project):
+        # FR11: an approved estimate changes only through a change request with a reason, cost and schedule impact.
+        raise ValidationError("Смета уже утверждена. Чтобы её изменить, составьте заявку в разделе «Изменения сметы».")
     previous = latest_estimate(project)
     number = (project.estimates.aggregate(top=Max("number"))["top"] or 0) + 1
     estimate = Estimate.objects.create(project=project, number=number, based_on=previous, created_by=actor)

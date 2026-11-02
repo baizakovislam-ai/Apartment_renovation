@@ -144,14 +144,11 @@ class EstimateFlowTests(TestCase):
         self.assertEqual((second.status, second.total), ("approved", Decimal("14000.00")))
         with self.assertRaises(ValidationError):  # repeated click
             services.approve_estimate(estimate=second, actor=self.customer)
-        third = services.create_draft(project=self.project, actor=self.foreman)
-        self.add(third)
-        third.refresh_from_db()
-        services.submit_estimate(estimate=third, actor=self.foreman)
-        services.approve_estimate(estimate=third, actor=self.customer)
-        second.refresh_from_db()
-        self.assertEqual(second.status, "superseded")
-        self.assertEqual(services.approved_estimate(self.project), third)
+        # FR11: after approval the estimate changes only through a change request, not a new version.
+        for actor in (self.foreman, self.customer):
+            with self.assertRaisesMessage(ValidationError, "Изменения сметы"):
+                services.create_draft(project=self.project, actor=actor)
+        self.assertEqual(services.approved_estimate(self.project), second)
 
     def test_withdraw_returns_to_draft(self):
         estimate = services.create_draft(project=self.project, actor=self.foreman)
@@ -219,13 +216,14 @@ class EstimateFlowTests(TestCase):
     # --- FR17: search and filters ---
 
     def test_approvals_journal_filters(self):
-        self.approved()
         rejected = services.create_draft(project=self.project, actor=self.foreman)
+        self.add(rejected)
         rejected.refresh_from_db()
         services.submit_estimate(estimate=rejected, actor=self.foreman)
         services.reject_estimate(estimate=rejected, actor=self.customer, reason="Нужен второй вариант плитки")
+        self.approved()
         items = search.approval_items(self.project, self.customer, {})
-        self.assertEqual([item["status"] for item in items], ["rejected", "approved"])
+        self.assertEqual(sorted(item["status"] for item in items), ["approved", "rejected"])
         self.assertEqual(len(search.approval_items(self.project, self.customer, {"status": "approved"})), 1)
         self.assertEqual(len(search.approval_items(self.project, self.customer, {"q": "второй вариант"})), 1)
         self.assertEqual(len(search.approval_items(self.project, self.customer, {"type": "acceptance"})), 0)

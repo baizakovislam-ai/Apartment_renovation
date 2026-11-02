@@ -204,9 +204,10 @@ class ChangeRulesTests(ChangeTestBase):
 
     def test_line_of_other_version_is_refused(self):
         change = self.new_request()
-        draft = services.create_draft(project=self.project, actor=self.foreman)
+        old = Estimate.objects.create(project=self.project, number=99, status=Estimate.Status.SUPERSEDED, created_by=self.foreman)
+        old_line = old.lines.create(stage=self.tiles, name="Старая строка", unit="шт", quantity=1, price=1, position=1)
         with self.assertRaises(ValidationError):
-            self.set(change, action="remove", line=draft.lines.first())
+            self.set(change, action="remove", line=old_line)
 
     def test_stale_request_cannot_be_applied(self):
         first, second = self.new_request(), self.new_request()
@@ -223,13 +224,15 @@ class ChangeRulesTests(ChangeTestBase):
         with self.assertRaises(ValidationError):  # a v1 line, but the third request is made for v2
             self.set(third, action="remove", line=self.cable_line)
 
-    def test_open_new_version_blocks_approval(self):
+    def test_new_version_is_refused_after_approval(self):
+        # The approved estimate changes only through a change request (FR11), so no parallel draft can appear.
         change = self.new_request()
         self.set(change, action="remove", line=self.cable_line)
         self.submit(change)
-        services.create_draft(project=self.project, actor=self.foreman)
         with self.assertRaises(ValidationError):
-            changes.approve_request(request=change, actor=self.customer)
+            services.create_draft(project=self.project, actor=self.foreman)
+        changes.approve_request(request=change, actor=self.customer)
+        self.assertEqual(services.approved_estimate(self.project).lines.filter(name="Кабель").count(), 0)
 
     def test_stale_revision(self):
         change = self.new_request()
