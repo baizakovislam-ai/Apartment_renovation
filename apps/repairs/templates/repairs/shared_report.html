@@ -1,0 +1,26 @@
+{% load static workspace_ui %}<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Фотоотчёт: {{ report.task.name }} — Контроль ремонта</title>
+<meta property="og:title" content="Фотоотчёт: {{ report.task.name }}">
+<meta property="og:description" content="{{ report.description|truncatechars:180 }}">
+{% with first=photos|first %}{% if first %}<meta property="og:image" content="{{ request.scheme }}://{{ request.get_host }}{% url 'shared-photo' token first.pk %}">{% endif %}{% endwith %}
+<link rel="icon" href="{% static 'workspace/renovation-icon.svg' %}">
+<link rel="stylesheet" href="{% static 'workspace/ui.css' %}?v=84">
+</head>
+<body class="shared-page">
+<main class="shared-report">
+<section class="card">
+<span class="eyebrow">Фотоотчёт · {{ report.project.name }}</span>
+<h1 class="shared-report__title">{{ report.task.name }}</h1>
+<div class="photo-report__head"><span class="avatar">{{ report.author|initials }}</span><div><strong>{{ report.author|display_name }}</strong><small>{{ report.created_at|date:'d E Y, H:i' }}</small></div></div>
+<p class="prose">{{ report.description|linebreaksbr }}</p>
+<div class="shared-report__photos">{% for photo in photos %}<a href="{% url 'shared-photo' token photo.pk %}" target="_blank" rel="noopener"><img src="{% url 'shared-photo' token photo.pk %}" alt="Фото {{ forloop.counter }} к задаче «{{ report.task.name }}»" width="{{ photo.width }}" height="{{ photo.height }}" loading="lazy"></a>{% endfor %}</div>
+</section>
+<p class="shared-report__foot">Контроль ремонта · ссылка действует 30 дней</p>
+</main>
+</body>
+</html>

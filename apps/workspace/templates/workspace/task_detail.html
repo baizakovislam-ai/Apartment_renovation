@@ -26,6 +26,12 @@
 <div class="photo-report__head"><span class="avatar">{{ report.author|initials }}</span><div><strong>{{ report.author|display_name }}</strong><small>{{ report.created_at|date:'d E Y, H:i' }}</small></div></div>
 <p class="prose">{{ report.description|linebreaksbr }}</p>
 <div class="photo-grid">{% for photo in report.photos.all %}<a href="{% url 'photo-file' photo.pk %}" target="_blank" rel="noopener"><img src="{% url 'photo-file' photo.pk %}" alt="Фото к задаче «{{ task.name }}»" loading="lazy" width="{{ photo.width }}" height="{{ photo.height }}"></a>{% endfor %}</div>
+<div class="share-bar" id="report-{{ report.pk }}" data-share data-share-url="{{ report.share_url }}" data-share-project="{{ project.name }}" data-share-task="{{ task.name }}" data-share-stage="{{ task.stage.name }}" data-share-author="{{ report.author|display_name }}" data-share-date="{{ report.created_at|date:'d.m.Y, H:i' }}" data-share-description="{{ report.description }}" data-share-count="{{ report.photos.all|length }}" data-share-photos="{% for photo in report.photos.all %}{% url 'photo-file' photo.pk %}{% if not forloop.last %} {% endif %}{% endfor %}">
+<span class="share-bar__label">Отправить фото:</span>
+<button class="share-chip share-chip--whatsapp" type="button" data-share-to="whatsapp">WhatsApp</button>
+<button class="share-chip share-chip--telegram" type="button" data-share-to="telegram">Telegram</button>
+<small class="share-bar__note" data-share-status hidden></small>
+</div>
 </article>{% empty %}<p class="muted-text">Фотоотчётов пока нет.</p>{% endfor %}
 {% if task.stage.status != 'cancelled' %}<form class="report-form" method="post" action="{% url 'workspace:photo-report-create' project.pk task.pk %}" enctype="multipart/form-data" data-once>{% csrf_token %}
 <input type="hidden" name="request_id" value="{{ report_request_id }}">
