@@ -8,8 +8,10 @@
 <link rel="icon" href="{% static 'workspace/renovation-icon.svg' %}">
 <link rel="stylesheet" href="{% static 'workspace/ui.css' %}?v=82">
 <script src="{% static 'workspace/app.js' %}?v=80" defer></script>
+{% include 'workspace/_intro_head.html' %}
 </head>
 <body>
+{% include 'workspace/_intro.html' %}
 <a class="skip-link" href="#content">Перейти к содержимому</a>
 <div class="app">
 <aside class="sidebar" id="sidebar" aria-label="Основное меню">

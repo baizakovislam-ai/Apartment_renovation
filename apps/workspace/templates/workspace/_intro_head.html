@@ -1,0 +1,11 @@
+{% load static %}<link rel="stylesheet" href="{% static 'workspace/intro.css' %}?v=1">
+<script>
+  /* Заставка RenoTrack — один раз за сеанс браузера. Решаем до отрисовки страницы, чтобы она не мелькала. */
+  try {
+    if (!sessionStorage.getItem("rt-intro-seen")) {
+      sessionStorage.setItem("rt-intro-seen", "1");
+      document.documentElement.classList.add("rt-intro-pending");
+    }
+  } catch (error) { /* хранилище недоступно (приватный режим) — просто без заставки */ }
+</script>
+<script src="{% static 'workspace/intro.js' %}?v=1" defer></script>

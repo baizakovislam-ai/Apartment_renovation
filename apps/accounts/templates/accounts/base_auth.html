@@ -6,8 +6,10 @@
 <title>{% block title %}Вход{% endblock %} — Контроль ремонта</title>
 <link rel="icon" href="{% static 'workspace/renovation-icon.svg' %}">
 <link rel="stylesheet" href="{% static 'workspace/ui.css' %}?v=80">
+{% include 'workspace/_intro_head.html' %}
 </head>
 <body class="auth-page">
+{% include 'workspace/_intro.html' %}
 <div class="auth-stage">
 <aside class="auth-visual">
 <a class="auth-visual__brand" href="{% url 'workspace:dashboard' %}">

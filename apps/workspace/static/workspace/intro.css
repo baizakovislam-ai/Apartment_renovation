@@ -1,0 +1,71 @@
+/* Заставка RenoTrack при первом заходе на сайт (раз за сеанс браузера).
+   Сюжет: план квартиры → этапы работы и прогресс → участники → логотип. */
+
+.rt-intro { display: none; }
+html.rt-intro-pending .rt-intro {
+  position: fixed; inset: 0; z-index: 10000; display: grid; place-items: center; padding: 16px;
+  background: radial-gradient(circle at 50% 40%, #15223a, #0d1729 70%);
+  animation: rt-intro-out .6s ease-in 5.4s forwards;
+}
+html.rt-intro-pending { overflow: hidden; }
+html.rt-intro-pending .rt-intro.rt-done { animation: rt-intro-out .35s ease-in forwards; }
+.rt-intro svg { width: min(560px, 100%); height: auto; overflow: visible; }
+.rt-intro text { font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif; }
+.rt-skip { position: absolute; top: 16px; right: 16px; font: 500 13px Inter, system-ui, sans-serif; color: #7d8ba5;
+  background: transparent; border: 1px solid #2a3a57; border-radius: 999px; padding: 6px 14px; cursor: pointer; }
+.rt-skip:hover, .rt-skip:focus-visible { color: #e8eefb; border-color: #7d8ba5; }
+
+.rt-scene { transform-box: view-box; transform-origin: 200px 125px; animation: rt-scene-out .5s ease-in 3.3s forwards; }
+
+/* 1. План квартиры рисуется линией */
+.rt-plan { fill: none; stroke: #cbd6ea; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.rt-outline { stroke-dasharray: 640; stroke-dashoffset: 640; animation: rt-draw .9s ease-out .1s forwards; }
+.rt-wall { stroke-width: 2; stroke-dasharray: 140; stroke-dashoffset: 140; animation: rt-draw .5s ease-out .6s forwards; }
+
+/* 2. Комнаты закрашиваются этапами работы, растёт прогресс */
+.rt-room { opacity: 0; transform-box: fill-box; transform-origin: center; animation: rt-room-in .45s cubic-bezier(.2,.8,.2,1.2) forwards; }
+.rt-room text { fill: #fff; font-size: 11px; font-weight: 600; text-anchor: middle; }
+.rt-r1 { animation-delay: 1.0s; } .rt-r2 { animation-delay: 1.3s; } .rt-r3 { animation-delay: 1.6s; } .rt-r4 { animation-delay: 1.9s; }
+.rt-bar-track { fill: #22324f; }
+.rt-bar-fill { fill: url(#rt-intro-progress); transform-box: fill-box; transform-origin: left center; transform: scaleX(0);
+  animation: rt-grow 1.3s ease-in-out 1.0s forwards; }
+.rt-caption { fill: #7d8ba5; font-size: 10px; }
+.rt-percent { fill: #e8eefb; font-size: 10px; font-weight: 600; text-anchor: end; }
+
+/* 3. Участники проекта */
+.rt-role { opacity: 0; transform-box: fill-box; transform-origin: center; animation: rt-pop .4s cubic-bezier(.2,.8,.2,1.3) forwards; }
+.rt-role .rt-ring { fill: #15223a; stroke-width: 2; }
+.rt-role .rt-person { fill: #fff; }
+.rt-role text { fill: #7d8ba5; font-size: 9.5px; text-anchor: middle; }
+.rt-link { fill: none; stroke: #3b4f73; stroke-width: 1.5; stroke-dasharray: 3 4; opacity: 0;
+  animation: rt-fade-in .3s ease-out forwards, rt-flow .8s linear infinite; }
+.rt-p1 { animation-delay: 2.2s; } .rt-p2 { animation-delay: 2.4s; } .rt-p3 { animation-delay: 2.6s; }
+.rt-l1 { animation-delay: 2.35s, 0s; } .rt-l2 { animation-delay: 2.55s, 0s; } .rt-l3 { animation-delay: 2.75s, 0s; }
+
+/* 4. Логотип */
+.rt-logo-mark { fill: none; stroke: #60a5fa; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round;
+  stroke-dasharray: 200; stroke-dashoffset: 200; animation: rt-draw .6s ease-out 3.6s forwards; }
+.rt-logo-check { fill: none; stroke: #4ade80; stroke-width: 4.5; stroke-linecap: round; stroke-linejoin: round;
+  stroke-dasharray: 40; stroke-dashoffset: 40; animation: rt-draw .35s ease-out 4.15s forwards; }
+.rt-wordmark { font-size: 34px; font-weight: 800; text-anchor: middle; letter-spacing: -.5px; opacity: 0;
+  animation: rt-rise .5s ease-out 4.2s forwards; }
+.rt-tagline { fill: #7d8ba5; font-size: 11px; text-anchor: middle; letter-spacing: .3px; opacity: 0;
+  animation: rt-rise .5s ease-out 4.45s forwards; }
+
+@keyframes rt-draw { to { stroke-dashoffset: 0; } }
+@keyframes rt-room-in { from { opacity: 0; transform: scale(.85); } to { opacity: 1; transform: scale(1); } }
+@keyframes rt-grow { to { transform: scaleX(1); } }
+@keyframes rt-pop { from { opacity: 0; transform: scale(.4); } to { opacity: 1; transform: scale(1); } }
+@keyframes rt-fade-in { to { opacity: 1; } }
+@keyframes rt-flow { to { stroke-dashoffset: -14; } }
+@keyframes rt-scene-out { to { opacity: 0; transform: scale(.55); } }
+@keyframes rt-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes rt-intro-out { to { opacity: 0; visibility: hidden; } }
+
+/* Если анимация отключена в системе: сразу логотип и короткая пауза */
+@media (prefers-reduced-motion: reduce) {
+  html.rt-intro-pending .rt-intro, .rt-intro * { animation: none !important; }
+  .rt-scene { opacity: 0; }
+  .rt-logo-mark, .rt-logo-check { stroke-dashoffset: 0; }
+  .rt-wordmark, .rt-tagline { opacity: 1; }
+}
