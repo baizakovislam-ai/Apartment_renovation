@@ -133,14 +133,16 @@ def section_estimate(report):
 def section_expenses(report):
     yield Paragraph("4. Расходы", STYLES["h2"])
     expenses = report["expenses"]
-    if expenses is None:
-        yield p("Учёт фактических расходов в системе пока не ведётся, поэтому итоговая стоимость указана по утверждённой смете "
+    if not expenses:
+        yield p("Подтверждённых заказчиком расходов нет, поэтому итоговая стоимость указана по утверждённой смете "
                 "с учётом одобренных изменений.", "body")
-    elif not expenses:
-        yield p("Подтверждённых расходов нет.", "body")
     else:
-        rows = [[date(expense.date), expense.name, money(expense.amount)] for expense in expenses]
-        yield table(["Дата", "Расход", "Сумма"], rows, [25, 115, 32], numeric=(2,))
+        total = sum((expense.amount for expense in expenses), 0)
+        yield p(f"Подтверждённых заказчиком расходов: {len(expenses)} на {money(total)}. Черновики, ожидающие и отклонённые "
+                "расходы в отчёт не входят.", "body")
+        yield Spacer(1, 3 * mm)
+        rows = [[date(expense.date), expense.name, expense.get_category_display(), money(expense.amount)] for expense in expenses]
+        yield table(["Дата", "Расход", "Категория", "Сумма"], rows, [22, 95, 25, 30], numeric=(3,))
 
 
 def section_works(report):

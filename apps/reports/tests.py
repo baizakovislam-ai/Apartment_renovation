@@ -50,7 +50,7 @@ class FinalReportTests(TestCase):
         Stage.objects.filter(pk=self.stage.pk).update(start_date=self.today - timedelta(days=20), end_date=self.today - timedelta(days=5))
         report = build_report(self.project, self.customer)
         self.assertIsNone(report["final_cost"])
-        self.assertIsNone(report["expenses"])
+        self.assertEqual(report["expenses"], [])
         self.assertEqual((report["stages"][0]["days_late"], report["schedule"]["late_stages"]), (5, 1))
         self.assertEqual((report["customer"], report["foreman"], report["executors"]), (self.customer, self.foreman, [self.worker]))
         self.assertTrue(render_pdf(report).startswith(b"%PDF"))

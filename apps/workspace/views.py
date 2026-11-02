@@ -54,6 +54,8 @@ def context(request, project=None, page="dashboard", **extra):
         "is_archived": archived,
         "incoming_count": project_services.pending_invitations_for(request.user).count(),
         "keeps_price_list": price_services.is_foreman(request.user),
+        # The customer sees how many expenses wait for a decision right in the menu (FR12).
+        "pending_expenses": project.expenses.filter(status="pending").count() if role == "customer" and not archived else 0,
         "page": page, "today": timezone.localdate(), **extra,
     }
 
@@ -108,6 +110,11 @@ def attention_items(project, user):
                           f"{change.cost_delta:+,.0f} сом · «{change.reason[:60]}»".replace(",", " "), url("estimate-change", change.pk)))
         if project.status == "planning" and estimate_services.approved_estimate(project) and not estimate_services.start_blockers(project):
             items.append(("play", "green", "Можно запускать работы", "Смета утверждена, прораб в команде", url("estimate")))
+        expenses = project.expenses.filter(status="pending")
+        if expenses.exists():
+            total = sum(expense.amount for expense in expenses)
+            items.append(("money", "orange", f"Расходов ждут подтверждения: {expenses.count()}",
+                          f"На {total:,.0f} сом — подтвердите или отклоните с причиной".replace(",", " "), url("expenses") + "?status=pending"))
         pending = project.stages.filter(status="pending_acceptance").count()
         if pending:
             items.append(("check", "orange", f"Этапов на приёмке: {pending}", "Примите или верните на доработку", url("acceptance")))
@@ -126,6 +133,9 @@ def attention_items(project, user):
         for change in project.change_requests.filter(created_by=user, status="rejected", decided_at__gte=timezone.now() - timedelta(days=7)):
             items.append(("edit", "red", f"Заказчик отклонил изменение сметы №{change.number}", f"«{change.decision_reason[:80]}»",
                           url("estimate-change", change.pk)))
+        for expense in project.expenses.filter(created_by=user, status="rejected", decided_at__gte=timezone.now() - timedelta(days=7)):
+            items.append(("money", "red", f"Заказчик отклонил расход №{expense.number}", f"«{expense.decision_reason[:80]}»",
+                          url("expense", expense.pk)))
         review = project.tasks.filter(status="review").count()
         if review:
             items.append(("tasks", "orange", f"Задач ждут проверки: {review}", "Подтвердите выполнение или верните", url("tasks") + "?status=review"))

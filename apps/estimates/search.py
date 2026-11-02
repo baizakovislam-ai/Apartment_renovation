@@ -12,10 +12,10 @@ from apps.quality.services import visible_remarks
 from apps.repairs.task_services import visible_tasks
 from .models import Calculation, Estimate, EstimateLine
 
-APPROVAL_TYPES = [("estimate", "Смета"), ("change", "Изменение сметы"), ("acceptance", "Приёмка этапа")]
+APPROVAL_TYPES = [("estimate", "Смета"), ("change", "Изменение сметы"), ("expense", "Расход"), ("acceptance", "Приёмка этапа")]
 APPROVAL_STATUSES = [("pending", "Ждёт решения"), ("approved", "Одобрено"), ("rejected", "Отклонено / возвращено"), ("other", "Прочее")]
 DECISION_STATUS = {"submit": "pending", "accept": "approved", "return": "rejected"}
-ESTIMATE_STATUS = {"pending": "pending", "approved": "approved", "rejected": "rejected", "superseded": "other", "draft": "other", "withdrawn": "other"}
+ESTIMATE_STATUS = {"pending": "pending", "approved": "approved", "confirmed": "approved", "rejected": "rejected", "superseded": "other", "draft": "other", "withdrawn": "other"}
 
 
 def parse_date(value):
@@ -47,6 +47,14 @@ def approval_items(project, user, params):
             "amount": change.cost_delta, "author": change.submitted_by, "created_at": change.submitted_at,
             "decided_by": change.decided_by, "decided_at": change.decided_at,
             "text": change.decision_reason or change.reason,
+        })
+    for expense in project.expenses.exclude(submitted_at__isnull=True).select_related("submitted_by", "decided_by"):
+        items.append({
+            "type": "expense", "type_label": "Расход", "title": f"Расход №{expense.number}: {expense.purpose}", "object_id": expense.pk,
+            "status": ESTIMATE_STATUS[expense.status], "status_label": expense.get_status_display(), "raw_status": expense.status,
+            "amount": expense.amount, "author": expense.submitted_by, "created_at": expense.submitted_at,
+            "decided_by": expense.decided_by, "decided_at": expense.decided_at,
+            "text": expense.decision_reason or expense.recipient,
         })
     decisions = list(StageDecision.objects.filter(project=project).select_related("stage", "actor"))
     latest = {}
@@ -121,11 +129,13 @@ def project_search(project, user, query):
         "stages": list(match_all(project.stages.all(), terms, ["name", "description"])[:20]),
         "remarks": list(match_all(visible_remarks(project, user), terms, ["description", "comments__text"])[:20]),
         "members": list(match_all(project.members.filter(is_active=True).select_related("user"), terms, ["user__full_name", "user__email"])[:20]),
-        "estimate_lines": [], "calculations": [],
+        "estimate_lines": [], "calculations": [], "expenses": [],
     }
     if manager:
         lines = EstimateLine.objects.filter(estimate__project=project).exclude(estimate__status=Estimate.Status.SUPERSEDED).select_related("estimate", "stage")
         results["estimate_lines"] = list(match_all(lines, terms, ["name", "stage__name"])[:20])
+        results["expenses"] = list(match_all(project.expenses.filter(~Q(status="draft") | Q(created_by=user)), terms,
+                                             ["purpose", "recipient", "note"])[:20])
         results["calculations"] = list(match_all(Calculation.objects.filter(project=project), terms, ["name", "note", "items__work"])[:20])
     results["count"] = sum(len(value) for value in results.values())
     results["terms"] = terms

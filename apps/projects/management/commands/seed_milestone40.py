@@ -131,7 +131,10 @@ def fill_demo(project, customer, foreman):
     # 5. The foreman proposes a change of the approved estimate (60 %, FR11); it waits for the customer.
     from .seed_milestone60 import fill_changes
     fill_changes(project)
-    # 6. The foreman's price list (80 %, FR14) for the preliminary calculation.
+    # 6. Expenses in every status (60 %, FR12, FR13).
+    from .seed_expenses import fill_expenses
+    fill_expenses(project)
+    # 7. The foreman's price list (80 %, FR14) for the preliminary calculation.
     from .seed_pricelist import fill_price_list
     fill_price_list(foreman)
 

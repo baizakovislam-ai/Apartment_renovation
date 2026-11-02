@@ -1,0 +1,37 @@
+{% extends 'workspace/base.html' %}{% load workspace_ui %}{% block title %}Расходы{% endblock %}{% block content %}<div class="page-title">
+<div>
+<span class="eyebrow">Деньги и согласования</span>
+<h1>Расходы</h1>
+<p>{% if membership.role == 'customer' %}Фактические оплаты по ремонту. Прораб и вы добавляете расходы с чеками, вы подтверждаете или отклоняете их.{% else %}Добавляйте оплаты с чеками и отправляйте заказчику: в фактические затраты попадают только подтверждённые расходы.{% endif %}</p>
+</div>
+<div class="page-actions">{% if is_manager %}<a class="button button--primary" href="{% url 'workspace:expense-create' project.pk %}">{% icon 'plus' %} Добавить расход</a>{% endif %}
+<a class="button button--secondary" href="{% url 'workspace:finances' project.pk %}">{% icon 'calc' %} Финансы</a></div>
+</div>
+<div class="remark-tabs" role="tablist" aria-label="Статус расходов">
+<a href="?" class="{% if not filters.status %}active{% endif %}">Все <b>{{ total_count }}</b></a>
+{% for value, label in statuses %}<a href="?status={{ value }}" class="{% if filters.status == value %}active{% endif %}">{% if value == 'pending' %}Ждут подтверждения{% else %}{{ label }}{% endif %}{% for key, count in counts.items %}{% if key == value %} <b>{{ count }}</b>{% endif %}{% endfor %}</a>{% endfor %}
+</div>
+<form class="toolbar filter-form" method="get">
+{% if filters.status %}<input type="hidden" name="status" value="{{ filters.status }}">{% endif %}
+<label class="search">{% icon 'search' %}<input name="q" value="{{ filters.q }}" placeholder="Получатель, назначение или примечание" aria-label="Поиск"></label>
+<select name="category" aria-label="Категория"><option value="">Все категории</option>{% for value, label in categories %}<option value="{{ value }}" {% if filters.category == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+<select name="stage" aria-label="Этап"><option value="">Все этапы</option><option value="none" {% if filters.stage == 'none' %}selected{% endif %}>Без этапа</option>{% for stage in stage_options %}<option value="{{ stage.pk }}" {% if filters.stage == stage.pk|stringformat:'s' %}selected{% endif %}>{{ stage.name }}</option>{% endfor %}</select>
+<input type="date" name="date_from" value="{{ filters.date_from }}" aria-label="Дата с">
+<input type="date" name="date_to" value="{{ filters.date_to }}" aria-label="Дата по">
+<button class="button button--secondary" type="submit">Применить</button>{% if has_filters %}<a href="{% url 'workspace:expenses' project.pk %}{% if filters.status %}?status={{ filters.status }}{% endif %}">Сбросить</a>{% endif %}
+</form>
+{% if expenses %}<div class="table-wrap">
+<table class="data-table expense-table">
+<thead><tr><th>№</th><th>Дата</th><th>Назначение и получатель</th><th>Категория</th><th class="num">Сумма</th><th>Статус</th></tr></thead>
+<tbody>{% for expense in expenses %}<tr class="expense-row expense-row--{{ expense.status }}">
+<td><a href="{% url 'workspace:expense' project.pk expense.pk %}">№{{ expense.number }}</a></td>
+<td>{{ expense.date|date:'d.m.Y' }}</td>
+<td><a href="{% url 'workspace:expense' project.pk expense.pk %}"><strong>{{ expense.purpose|truncatechars:80 }}</strong></a><small>{{ expense.recipient }}{% if expense.stage %} · {{ expense.stage.name }}{% endif %}{% if expense.document %} · есть документ{% endif %} · {{ expense.created_by|display_name }}</small>{% if expense.status == 'rejected' and expense.decision_reason %}<small class="overdue">Причина: «{{ expense.decision_reason|truncatechars:90 }}»</small>{% endif %}</td>
+<td>{{ expense.get_category_display }}</td>
+<td class="num"><strong>{{ expense.amount|money }}</strong></td>
+<td><span class="badge badge--{{ expense.status|status_tone }}"><span class="badge__dot"></span>{{ expense.get_status_display }}</span></td>
+</tr>{% endfor %}</tbody>
+<tfoot><tr><td colspan="4">Подтверждено в списке{% if has_filters or filters.status %} (с учётом фильтров){% endif %}</td><td class="num">{{ shown_total|money }}</td><td></td></tr></tfoot>
+</table></div>
+{% else %}<section class="card empty-state">{% icon 'money' %}<h2>{% if has_filters or filters.status %}Ничего не найдено{% else %}Расходов пока нет{% endif %}</h2><p>{% if has_filters or filters.status %}Измените условия поиска.{% else %}Каждая оплата — материалы, работы, доставка — записывается сюда с чеком и после подтверждения заказчиком попадает в фактические затраты.{% endif %}</p>
+{% if is_manager and not has_filters and not filters.status %}<a class="button button--primary" href="{% url 'workspace:expense-create' project.pk %}">{% icon 'plus' %} Добавить расход</a>{% endif %}</section>{% endif %}{% endblock %}

@@ -1,0 +1,57 @@
+{% extends 'workspace/base.html' %}{% load workspace_ui %}{% block title %}Финансы{% endblock %}{% block content %}<div class="page-title">
+<div>
+<span class="eyebrow">Деньги и согласования</span>
+<h1>Финансы проекта</h1>
+<p>Бюджет, стоимость утверждённой сметы и фактические расходы. В расходы входят только суммы, которые подтвердил заказчик.</p>
+</div>
+<div class="page-actions">{% if is_manager %}<a class="button button--primary" href="{% url 'workspace:expense-create' project.pk %}">{% icon 'plus' %} Добавить расход</a>{% endif %}
+<a class="button button--secondary" href="{% url 'workspace:expenses' project.pk %}">{% icon 'money' %} Все расходы</a></div>
+</div>
+
+{% for warning in summary.warnings %}<div class="notice notice--error finance-warning" role="alert">{% icon 'alert' %} {{ warning }}</div>{% endfor %}
+
+<div class="estimate-hero finance-hero">
+<div class="metric metric--accent"><div class="metric__icon metric__icon--glass">{% icon 'money' %}</div><span>Лимит бюджета</span><strong class="money">{{ summary.budget|money }}</strong><small>{% if summary.budget is None %}Не задан в паспорте проекта{% else %}Задаёт заказчик в паспорте проекта{% endif %}</small></div>
+<div class="metric"><div class="metric__icon metric__icon--blue">{% icon 'calc' %}</div><span>Стоимость сметы</span><strong class="money">{{ summary.estimate_total|money }}</strong><small>{% if summary.estimate %}Утверждённая смета, версия {{ summary.estimate.number }}{% else %}Смета ещё не утверждена{% endif %}</small></div>
+<div class="metric"><div class="metric__icon metric__icon--teal">{% icon 'check' %}</div><span>Фактические расходы</span><strong class="money">{{ summary.spent|money }}</strong><small>Подтверждено: {{ summary.confirmed_count }}{% if summary.pending_count %} · ждут решения: {{ summary.pending_count }} на {{ summary.pending_total|money }}{% endif %}</small></div>
+<div class="metric"><div class="metric__icon {% if summary.over_budget %}metric__icon--orange{% else %}metric__icon--green{% endif %}">{% icon 'stamp' %}</div><span>{% if summary.over_budget %}Перерасход бюджета{% else %}Остаток бюджета{% endif %}</span><strong class="money {% if summary.over_budget %}overdue{% endif %}">{% if summary.remaining is None %}—{% elif summary.over_budget %}{{ summary.remaining|money|cut:'-' }}{% else %}{{ summary.remaining|money }}{% endif %}</strong><small>{% if summary.remaining is None %}Задайте лимит, чтобы видеть остаток{% else %}Бюджет минус фактические расходы{% endif %}</small></div>
+</div>
+
+<div class="estimate-layout">
+<div class="stack">
+<section class="card">
+<div class="card__head"><div><span class="eyebrow">Отклонение от сметы</span><h2>План и факт</h2></div>
+{% if summary.deviation is not None %}<span class="badge badge--{% if summary.deviation > 0 %}red{% elif summary.deviation < 0 %}green{% else %}gray{% endif %}">{{ summary.deviation|signed_money }}{% if summary.deviation_percent is not None %} · {{ summary.deviation_percent|floatformat:1 }}%{% endif %}</span>{% endif %}</div>
+{% if summary.budget is not None %}<div class="finance-bar"><div class="finance-bar__label"><span>Израсходовано бюджета</span><strong>{{ summary.budget_used|default_if_none:0|floatformat:1 }}%</strong></div>
+<div class="progress progress--lg"><span class="progress__fill {% if summary.over_budget %}progress__fill--red{% else %}progress__fill--green{% endif %}" style="width:{% if summary.budget_used > 100 %}100{% else %}{{ summary.budget_used|default_if_none:0|floatformat:0 }}{% endif %}%"></span></div></div>{% endif %}
+{% if summary.estimate_total is not None %}<div class="finance-bar"><div class="finance-bar__label"><span>Освоено сметы</span><strong>{{ summary.estimate_used|default_if_none:0|floatformat:1 }}%</strong></div>
+<div class="progress progress--lg"><span class="progress__fill {% if summary.deviation > 0 %}progress__fill--red{% endif %}" style="width:{% if summary.estimate_used > 100 %}100{% else %}{{ summary.estimate_used|default_if_none:0|floatformat:0 }}{% endif %}%"></span></div></div>
+{% else %}<p class="muted-text">Отклонение считается от утверждённой сметы. <a href="{% url 'workspace:estimate' project.pk %}">Перейти к смете</a></p>{% endif %}
+{% if summary.by_category %}<h3 class="subhead">По категориям</h3><div class="table-wrap"><table class="data-table">
+<thead><tr><th>Категория</th><th class="num">По смете</th><th class="num">Факт</th><th class="num">Отклонение</th></tr></thead>
+<tbody>{% for row in summary.by_category %}<tr><td><strong>{{ row.label }}</strong>{% if row.used is not None %}<small>освоено {{ row.used|floatformat:0 }}%</small>{% endif %}</td><td class="num">{{ row.planned|money }}</td><td class="num">{{ row.actual|money }}</td>
+<td class="num"><strong class="{% if row.delta > 0 %}overdue{% elif row.delta < 0 %}success-text{% endif %}">{{ row.delta|signed_money }}</strong></td></tr>{% endfor %}</tbody>
+<tfoot><tr><td>Итого</td><td class="num">{{ summary.estimate_total|money }}</td><td class="num">{{ summary.spent|money }}</td><td class="num">{{ summary.deviation|signed_money }}</td></tr></tfoot>
+</table></div>{% endif %}
+{% if summary.by_stage %}<h3 class="subhead">По этапам</h3><div class="table-wrap"><table class="data-table">
+<thead><tr><th>Этап</th><th class="num">По смете</th><th class="num">Факт</th><th class="num">Отклонение</th></tr></thead>
+<tbody>{% for row in summary.by_stage %}<tr><td>{% if row.stage %}<a href="{% url 'workspace:expenses' project.pk %}?stage={{ row.stage.pk }}"><strong>{{ row.label }}</strong></a>{% else %}<a href="{% url 'workspace:expenses' project.pk %}?stage=none"><strong>{{ row.label }}</strong></a>{% endif %}</td>
+<td class="num">{{ row.planned|money }}</td><td class="num">{{ row.actual|money }}</td><td class="num"><strong class="{% if row.delta > 0 %}overdue{% elif row.delta < 0 %}success-text{% endif %}">{{ row.delta|signed_money }}</strong></td></tr>{% endfor %}</tbody>
+</table></div>{% endif %}
+{% if not summary.by_category and not summary.by_stage %}<div class="empty-state compact">{% icon 'money' %}<h3>Пока нечего сравнивать</h3><p>Здесь появится сравнение сметы и фактических расходов по категориям и этапам.</p></div>{% endif %}
+</section>
+</div>
+
+<aside class="stack">
+{% if pending %}<section class="card decision-card">
+<span class="eyebrow">Ждут подтверждения заказчика</span>
+{% for expense in pending %}<a class="mini-row" href="{% url 'workspace:expense' project.pk expense.pk %}"><strong>№{{ expense.number }} · {{ expense.amount|money }}</strong><small>{{ expense.purpose|truncatechars:60 }} · {{ expense.created_by|display_name }}</small></a>{% endfor %}
+<a class="button button--secondary" href="{% url 'workspace:expenses' project.pk %}?status=pending">{% if membership.role == 'customer' %}Проверить расходы{% else %}Открыть список{% endif %}</a>
+</section>{% endif %}
+<section class="card">
+<div class="card__head"><div><span class="eyebrow">Последние</span><h2>Расходы</h2></div><span class="counter">{{ recent|length }}</span></div>
+{% for expense in recent %}<a class="mini-row" href="{% url 'workspace:expense' project.pk expense.pk %}"><strong>{{ expense.purpose|truncatechars:50 }}</strong><small>{{ expense.date|date:'d.m.Y' }} · {{ expense.amount|money }} · {{ expense.get_status_display }}</small></a>
+{% empty %}<p class="muted-text">Расходов пока нет.{% if is_manager %} Добавьте первый: сумму, получателя и чек.{% endif %}</p>{% endfor %}
+</section>
+</aside>
+</div>{% endblock %}

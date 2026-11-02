@@ -32,6 +32,8 @@
 {% if nav_manager %}<span class="nav__label">Деньги и согласования</span>
 <a class="nav__item {% if page == 'estimate' %}nav__item--active{% endif %}" href="{% url 'workspace:estimate' project.pk %}">{% icon 'money' %}<span>Смета</span></a>
 <a class="nav__item {% if page == 'estimate-changes' %}nav__item--active{% endif %}" href="{% url 'workspace:estimate-changes' project.pk %}">{% icon 'edit' %}<span>Изменения сметы</span></a>
+<a class="nav__item {% if page == 'finances' %}nav__item--active{% endif %}" href="{% url 'workspace:finances' project.pk %}">{% icon 'calc' %}<span>Финансы</span></a>
+<a class="nav__item {% if page == 'expenses' %}nav__item--active{% endif %}" href="{% url 'workspace:expenses' project.pk %}">{% icon 'money' %}<span>Расходы</span>{% if pending_expenses %}<b class="nav__badge" title="Ждут подтверждения">{{ pending_expenses }}</b>{% endif %}</a>
 <a class="nav__item {% if page == 'calculations' %}nav__item--active{% endif %}" href="{% url 'workspace:calculations' project.pk %}">{% icon 'calc' %}<span>Предварительный расчёт</span></a>
 <a class="nav__item {% if page == 'project-price-list' %}nav__item--active{% endif %}" href="{% url 'workspace:project-price-list' project.pk %}">{% icon 'tag' %}<span>Прайс-лист прораба</span></a>
 <a class="nav__item {% if page == 'approvals' %}nav__item--active{% endif %}" href="{% url 'workspace:approvals' project.pk %}">{% icon 'stamp' %}<span>Согласования</span></a>

@@ -97,6 +97,7 @@ def project_delete_summary(project):
         (project.remarks.count(), "замечаний"),
         (project.estimates.count(), "версий сметы"),
         (project.calculations.count(), "расчётов"),
+        (project.expenses.count(), "расходов"),
         (project.members.filter(is_active=True).count(), "участников"),
     ]
     return [f"{label}: {count}" for count, label in counts if count]
@@ -115,7 +116,9 @@ def delete_project(*, project, actor):
         raise ValidationError("Удалить проект может только заказчик, который его создал.")
     files = [photo.file for photo in Photo.objects.filter(report__project=project)]
     files += [photo.file for photo in RemarkPhoto.objects.filter(remark__project=project)]
+    files += [expense.document for expense in project.expenses.exclude(document="")]
     # Work records are protected from cascading deletes, so remove them from the most dependent up.
+    project.expenses.all().delete()
     project.change_requests.all().delete()
     Estimate.objects.filter(project=project).update(based_on=None)
     project.estimates.all().delete()

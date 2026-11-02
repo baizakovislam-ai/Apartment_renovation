@@ -1,0 +1,58 @@
+{% extends 'workspace/base.html' %}{% load workspace_ui %}{% block title %}Расход №{{ expense.number }}{% endblock %}{% block content %}<a class="back-link" href="{% url 'workspace:expenses' project.pk %}">← Ко всем расходам</a>
+<div class="page-title">
+<div>
+<span class="eyebrow">Расход №{{ expense.number }} · {{ expense.get_category_display }}{% if expense.stage %} · {{ expense.stage.name }}{% endif %}</span>
+<h1>{{ expense.purpose }}</h1>
+<p><span class="badge badge--{{ expense.status|status_tone }}"><span class="badge__dot"></span>{{ expense.get_status_display }}</span></p>
+</div>{% if is_author and expense.status == 'draft' %}<a class="button button--secondary" href="{% url 'workspace:expense-edit' project.pk expense.pk %}">{% icon 'edit' %} Редактировать</a>{% endif %}</div>
+
+<div class="status-flow" aria-label="Статус расхода">
+<span class="{% if expense.status == 'draft' %}current{% else %}done{% endif %}">1 · Черновик</span>
+<span class="{% if expense.status == 'pending' %}current{% elif expense.status != 'draft' %}done{% endif %}">2 · На подтверждении</span>
+<span class="{% if expense.status == 'confirmed' %}current{% elif expense.status == 'rejected' %}failed{% endif %}">3 · {% if expense.status == 'rejected' %}Отклонён{% else %}Подтверждён{% endif %}</span>
+</div>
+
+<div class="detail-layout">
+<div class="stack">
+<section class="card">
+<dl class="facts">
+<div><dt>Сумма</dt><dd class="expense-amount">{{ expense.amount|money }}</dd></div>
+<div><dt>Дата оплаты</dt><dd>{{ expense.date|date:'d E Y' }}</dd></div>
+<div><dt>Получатель</dt><dd>{{ expense.recipient }}</dd></div>
+<div><dt>Категория</dt><dd>{{ expense.get_category_display }}</dd></div>
+<div><dt>Этап</dt><dd>{% if expense.stage %}{{ expense.stage.name }}{% else %}Без привязки к этапу{% endif %}</dd></div>
+<div><dt>Добавил(а)</dt><dd>{{ expense.created_by|display_name }}, {{ expense.created_at|date:'d.m.Y H:i' }}</dd></div>
+{% if expense.submitted_at %}<div><dt>Отправлен на подтверждение</dt><dd>{{ expense.submitted_by|display_name }}, {{ expense.submitted_at|date:'d.m.Y H:i' }}</dd></div>{% endif %}
+{% if expense.decided_at %}<div><dt>{% if expense.status == 'confirmed' %}Подтвердил(а){% else %}Отклонил(а){% endif %}</dt><dd>{{ expense.decided_by|display_name }}, {{ expense.decided_at|date:'d.m.Y H:i' }}</dd></div>{% endif %}
+</dl>
+{% if expense.note %}<h3 class="subhead">Примечание</h3><p>{{ expense.note|linebreaksbr }}</p>{% endif %}
+{% if expense.status == 'rejected' %}<div class="notice notice--error" style="margin-top:14px"><strong>Причина отклонения:</strong> {{ expense.decision_reason|linebreaksbr }}</div>{% endif %}
+<h3 class="subhead">Подтверждающий документ</h3>
+{% if expense.document %}{% if expense.document_type == 'application/pdf' %}<a class="button button--secondary" href="{% url 'expense-document' expense.pk %}" target="_blank" rel="noopener">{% icon 'report' %} {{ expense.document_name }} · PDF, {{ expense.document_size|filesizeformat }}</a>
+{% else %}<div class="photo-grid"><a href="{% url 'expense-document' expense.pk %}" target="_blank" rel="noopener"><img src="{% url 'expense-document' expense.pk %}" alt="Документ к расходу №{{ expense.number }}" loading="lazy"></a></div><small class="muted-text">{{ expense.document_name }}, {{ expense.document_size|filesizeformat }}</small>{% endif %}
+{% else %}<p class="muted-text">Документ не приложен.{% if is_author and expense.status == 'draft' %} Приложите чек или накладную через «Редактировать».{% endif %}</p>{% endif %}
+</section>
+</div>
+<aside class="stack">
+<section class="card decision-card">
+<span class="eyebrow">Что дальше</span>
+{% if expense.status == 'draft' %}{% if is_author %}<p class="muted-text">Черновик видите только вы. Проверьте данные и отправьте заказчику на подтверждение.</p>
+<form method="post" action="{% url 'workspace:expense-action' project.pk expense.pk %}" data-once>{% csrf_token %}<input type="hidden" name="revision" value="{{ expense.revision }}"><button class="button button--primary" name="action" value="submit" type="submit">{% icon 'send' %} Отправить на подтверждение</button></form>
+<form method="post" action="{% url 'workspace:expense-action' project.pk expense.pk %}" data-confirm="Удалить черновик расхода №{{ expense.number }}?">{% csrf_token %}<input type="hidden" name="revision" value="{{ expense.revision }}"><button class="button button--ghost" name="action" value="delete" type="submit">{% icon 'trash' %} Удалить черновик</button></form>
+{% else %}<p class="muted-text">Черновик.</p>{% endif %}{% endif %}
+{% if expense.status == 'pending' %}{% if can_decide %}<p class="muted-text">Проверьте сумму, получателя и документ. Подтверждённый расход войдёт в фактические затраты.</p>
+<form method="post" action="{% url 'workspace:expense-action' project.pk expense.pk %}" data-once>{% csrf_token %}<input type="hidden" name="revision" value="{{ expense.revision }}"><button class="button button--success" name="action" value="confirm" type="submit">{% icon 'check' %} Подтвердить {{ expense.amount|money }}</button></form>
+<form method="post" action="{% url 'workspace:expense-action' project.pk expense.pk %}" data-once>{% csrf_token %}<input type="hidden" name="revision" value="{{ expense.revision }}">
+<div class="field"><label for="reject-reason">Причина отклонения</label><textarea id="reject-reason" name="reason" rows="2" required placeholder="Например, нет чека или сумма не совпадает"></textarea></div>
+<button class="button button--danger" name="action" value="reject" type="submit">Отклонить расход</button></form>
+{% else %}<p class="muted-text">Ждёт решения заказчика.</p>{% endif %}
+{% if is_author %}<form method="post" action="{% url 'workspace:expense-action' project.pk expense.pk %}" data-once>{% csrf_token %}<input type="hidden" name="revision" value="{{ expense.revision }}"><button class="button button--ghost" name="action" value="withdraw" type="submit">Отозвать и исправить</button></form>{% endif %}{% endif %}
+{% if expense.status == 'confirmed' %}<p class="success-text">Расход подтверждён и учтён в фактических затратах. Изменить его нельзя — история сохраняется.</p>{% endif %}
+{% if expense.status == 'rejected' %}<p class="muted-text">Расход отклонён и не входит в фактические затраты. Он остаётся в списке для истории.{% if is_author %} Если нужно, добавьте исправленный расход заново.{% endif %}</p>{% if is_author %}<a class="button button--secondary" href="{% url 'workspace:expense-create' project.pk %}">{% icon 'plus' %} Новый расход</a>{% endif %}{% endif %}
+</section>
+<section class="card">
+<div class="card__head"><div><span class="eyebrow">История</span><h2>События</h2></div></div>
+{% for event in events %}<div class="mini-row"><strong>{{ event.action|event_label }}</strong><small>{{ event.actor|display_name }} · {{ event.created_at|date:'d.m.Y H:i' }}</small></div>{% empty %}<p class="muted-text">Событий нет.</p>{% endfor %}
+</section>
+</aside>
+</div>{% endblock %}

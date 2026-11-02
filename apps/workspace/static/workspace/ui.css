@@ -714,6 +714,22 @@ a.attention__item:hover strong { color: var(--brand); }
 .report-facts dd { margin: 0; }
 @media (max-width: 720px) { .report-facts { grid-template-columns: minmax(0, 1fr); gap: 2px; } .report-facts dd { margin-bottom: 8px; } }
 
+/* ---------- expenses and finances (60%, FR12, FR13) ---------- */
+.finance-warning { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.finance-bar { margin: 6px 0 16px; }
+.finance-bar__label { display: flex; justify-content: space-between; font-size: 13.5px; color: var(--muted); margin-bottom: 6px; }
+.finance-bar__label strong { color: var(--ink); font-variant-numeric: tabular-nums; }
+.progress__fill--red { background: linear-gradient(90deg, #f87171, #dc2626); }
+.expense-table td a { color: inherit; }
+.expense-row--rejected td { color: var(--muted); }
+.expense-row--rejected .num strong { text-decoration: line-through; }
+.expense-row--draft td:first-child { border-left: 3px solid var(--line); }
+.expense-row--pending td:first-child { border-left: 3px solid var(--amber); }
+.expense-amount { font-size: 20px !important; font-variant-numeric: tabular-nums; }
+@media (max-width: 900px) { .finance-hero { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 560px) { .finance-hero { grid-template-columns: minmax(0, 1fr); } }
+.approval-row__icon--expense { background: var(--green-50); color: var(--green); }
+
 /* ---------- отправка фотоотчёта в мессенджеры ---------- */
 .share-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
 .share-bar__label { font-size: 12.5px; font-weight: 600; color: var(--muted); }

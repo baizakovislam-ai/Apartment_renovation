@@ -1,5 +1,5 @@
 from django.urls import path
-from . import finance_views as finance, price_views as prices, report_views as reports, views, work_views as work
+from . import expense_views as expenses, finance_views as finance, price_views as prices, report_views as reports, views, work_views as work
 
 app_name = "workspace"
 urlpatterns = [
@@ -51,6 +51,12 @@ urlpatterns = [
     path("projects/<int:project_id>/calculations/<int:calculation_id>/update/", finance.calculation_update, name="calculation-update"),
     path("projects/<int:project_id>/calculations/items/<int:item_id>/edit/", finance.calculation_item_edit, name="calculation-item-edit"),
     path("projects/<int:project_id>/calculations/items/<int:item_id>/delete/", finance.calculation_item_delete, name="calculation-item-delete"),
+    path("projects/<int:project_id>/finances/", expenses.finance_overview, name="finances"),
+    path("projects/<int:project_id>/expenses/", expenses.expense_list, name="expenses"),
+    path("projects/<int:project_id>/expenses/new/", expenses.expense_create, name="expense-create"),
+    path("projects/<int:project_id>/expenses/<int:expense_id>/", expenses.expense_detail, name="expense"),
+    path("projects/<int:project_id>/expenses/<int:expense_id>/edit/", expenses.expense_edit, name="expense-edit"),
+    path("projects/<int:project_id>/expenses/<int:expense_id>/action/", expenses.expense_action, name="expense-action"),
     path("projects/<int:project_id>/report/", reports.report_page, name="report"),
     path("projects/<int:project_id>/report/pdf/", reports.report_pdf, name="report-pdf"),
     path("projects/<int:project_id>/price-list/",prices.project_price_list, name="project-price-list"),
