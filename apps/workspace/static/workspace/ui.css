@@ -723,10 +723,8 @@ a.attention__item:hover strong { color: var(--brand); }
 .share-chip--whatsapp:hover { background: #ecfaf1; color: #0b6b37; border-color: #9fdcb7; }
 .share-chip--telegram { color: #1d7fc4; border-color: #bfdcf2; }
 .share-chip--telegram:hover { background: #ebf5fd; color: #135f95; border-color: #9cc9ea; }
-.share-chip--viber { color: #6a3fb5; border-color: #d8cbf0; }
-.share-chip--viber:hover { background: #f4effc; color: #522d93; border-color: #c2aeea; }
 @media print { .share-bar { display: none !important; } }
-.share-bar__note { flex-basis: 100%; font-size: 12px; color: var(--orange, #c2410c); }
+.share-bar__note { flex-basis: 100%; font-size: 12.5px; color: var(--muted); }
 /* публичная страница фотоотчёта (ссылка из мессенджера) */
 .shared-page { background: var(--bg, #f3f6fb); min-height: 100vh; margin: 0; }
 .shared-report { max-width: 760px; margin: 0 auto; padding: 24px 16px 40px; }
