@@ -15,6 +15,7 @@ from apps.projects import services as project_services
 from apps.projects.permissions import active_membership, require_customer, require_manager
 from apps.quality import services as quality_services
 from apps.quality.models import Remark
+from apps.repairs.sharing import make_share_token
 from apps.quality.views import filter_remarks
 from apps.repairs import services as stage_services
 from apps.repairs import task_services
@@ -167,7 +168,9 @@ def task_detail(request, project_id, task_id):
     project = own_project(request, project_id)
     task = visible_task(request, project, task_id)
     member = active_membership(project, request.user)
-    reports = task.reports.select_related("author").prefetch_related("photos")
+    reports = list(task.reports.select_related("author").prefetch_related("photos"))
+    for report in reports:
+        report.share_url = request.build_absolute_uri(reverse("shared-report", args=[make_share_token(report)]))
     events = project.events.filter(data__task_id=task.pk).select_related("actor")[:30]
     remark_stage_open = task.stage.status in ("in_progress", "completed", "pending_acceptance")
     return render(request, "workspace/task_detail.html", context(request, project, "tasks", task=task, reports=reports, events=events,

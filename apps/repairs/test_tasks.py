@@ -1,4 +1,6 @@
 import io
+import time
+from unittest import mock
 import shutil
 import tempfile
 import uuid
@@ -158,6 +160,28 @@ class TaskWorkflowTests(APITestCase):
         self.client.logout()
         self.assertEqual(self.client.get(photo_url).status_code, 302)
         self.assertEqual(Photo.objects.count(), 2)
+
+    def test_shared_report_link_opens_without_login_only_for_its_photos(self):
+        from .models import PhotoReport
+        from .sharing import SHARE_MAX_AGE, make_share_token
+        task = self.create_task()
+        reports = f"/api/tasks/{task['id']}/reports/"
+        self.client.force_authenticate(self.executor)
+        first = self.client.post(reports, {"description": "Розетка", "images": [image_file()]}, format="multipart").data
+        second = self.client.post(reports, {"description": "Щиток", "images": [image_file()]}, format="multipart").data
+        token = make_share_token(PhotoReport.objects.get(pk=first["id"]))
+        self.client.force_authenticate(None)
+        self.client.logout()
+        page = self.client.get(f"/share/reports/{token}/")
+        self.assertEqual(page.status_code, 200)
+        self.assertContains(page, "Розетка")
+        self.assertNotContains(page, "Щиток")
+        own_photo, other_photo = first["photos"][0]["id"], second["photos"][0]["id"]
+        self.assertEqual(self.client.get(f"/share/reports/{token}/photos/{own_photo}/").status_code, 200)
+        self.assertEqual(self.client.get(f"/share/reports/{token}/photos/{other_photo}/").status_code, 404)
+        self.assertEqual(self.client.get(f"/share/reports/{token}x/").status_code, 404)
+        with mock.patch("django.core.signing.time.time", return_value=time.time() + SHARE_MAX_AGE + 60):
+            self.assertEqual(self.client.get(f"/share/reports/{token}/").status_code, 404)
 
     def test_progress_counts_tasks_and_accepted_stages(self):
         self.assertEqual(project_progress(self.project)["percent"], 0)

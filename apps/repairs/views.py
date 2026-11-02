@@ -3,7 +3,7 @@ from datetime import date, timedelta
 from django.contrib.auth.decorators import login_required
 from django.db.models import Q
 from django.http import FileResponse, Http404
-from django.shortcuts import get_object_or_404
+from django.shortcuts import get_object_or_404, render
 from django.utils import timezone
 from rest_framework import generics, status
 from rest_framework.exceptions import APIException
@@ -14,6 +14,7 @@ from rest_framework.views import APIView
 
 from apps.projects.views import accessible_project
 from . import services, task_services
+from .sharing import report_from_token
 from .models import DUE_SOON_DAYS, Photo, Stage, Task
 from .serializers import (PhotoReportCreateSerializer, PhotoReportSerializer, StageSerializer, TaskActionSerializer,
                           TaskSerializer)
@@ -187,4 +188,24 @@ def photo_file(request, pk):
     response = FileResponse(photo.file.open("rb"), content_type=photo.content_type)
     response["Cache-Control"] = "private, max-age=3600"
     response["X-Content-Type-Options"] = "nosniff"
+    return response
+
+
+def shared_report(request, token):
+    """Публичная страница фотоотчёта по подписанной ссылке (её отправляют в WhatsApp, Telegram и т. д.)."""
+    report = report_from_token(token)
+    response = render(request, "repairs/shared_report.html", {"report": report, "token": token, "photos": report.photos.all()})
+    response["X-Robots-Tag"] = "noindex, nofollow"
+    response["Referrer-Policy"] = "no-referrer"
+    return response
+
+
+def shared_photo(request, token, pk):
+    """Фото из отчёта по той же подписанной ссылке; чужие фото по ней не открываются."""
+    report = report_from_token(token)
+    photo = get_object_or_404(Photo, pk=pk, report=report)
+    response = FileResponse(photo.file.open("rb"), content_type=photo.content_type)
+    response["Cache-Control"] = "private, max-age=3600"
+    response["X-Content-Type-Options"] = "nosniff"
+    response["X-Robots-Tag"] = "noindex, nofollow"
     return response

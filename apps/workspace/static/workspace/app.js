@@ -53,23 +53,45 @@ document.querySelectorAll("[data-fill-volume]").forEach(button => button.addEven
 }));
 // «Отправить фотоотчёт» в мессенджеры: WhatsApp, Telegram, Viber, почта, системное меню «Поделиться» с фото.
 document.querySelectorAll("[data-share]").forEach(bar => {
-  const url = `${location.origin}${location.pathname}#${bar.dataset.shareAnchor}`;
-  const title = bar.dataset.shareTitle;
-  const text = bar.dataset.shareText;
-  const full = `${text}\n${url}`;
+  const d = bar.dataset;
+  const url = d.shareUrl;
+  const count = Number(d.shareCount) || 0;
+  const title = `Фотоотчёт: ${d.shareTask}`;
+  // Многострочное сообщение; в WhatsApp *текст* выделяется жирным.
+  const text = [
+    "📷 *Фотоотчёт по ремонту*",
+    `🏠 Проект: ${d.shareProject}`,
+    `🔧 Этап: ${d.shareStage}`,
+    `✅ Задача: ${d.shareTask}`,
+    `👤 Автор: ${d.shareAuthor}`,
+    `🕒 ${d.shareDate}`,
+    "",
+    `📝 ${d.shareDescription}`,
+  ].join("\n");
+  const linkLine = count ? `🖼 Смотреть фото (${count} шт.): ${url}` : `Подробнее: ${url}`;
+  const full = `${text}\n\n${linkLine}`;
+  const plain = full.replace(/\*/g, "");
   const enc = encodeURIComponent;
   const links = {
     whatsapp: `https://wa.me/?text=${enc(full)}`,
-    telegram: `https://t.me/share/url?url=${enc(url)}&text=${enc(text)}`,
-    viber: `viber://forward?text=${enc(full)}`,
-    email: `mailto:?subject=${enc(title)}&body=${enc(full)}`,
+    // Telegram сам добавит ссылку с превью первого фото.
+    telegram: `https://t.me/share/url?url=${enc(url)}&text=${enc(text.replace(/\*/g, "") + (count ? `\n\n🖼 Фото: ${count} шт.` : ""))}`,
+    viber: `viber://forward?text=${enc(plain)}`,
+    email: `mailto:?subject=${enc(title)}&body=${enc(plain)}`,
   };
+  // На 127.0.0.1 ссылку откроет только этот компьютер — предупреждаем.
+  if (/^https?:\/\/(127\.|localhost)/.test(url)) {
+    const note = document.createElement("small");
+    note.className = "share-bar__note";
+    note.textContent = "Сайт открыт как 127.0.0.1 — у получателя ссылка на фото не откроется. Откройте сайт по внешнему адресу (ngrok или start_lan.bat).";
+    bar.appendChild(note);
+  }
   bar.querySelectorAll("[data-share-to]").forEach(link => { link.href = links[link.dataset.shareTo]; });
 
   const copy = bar.querySelector("[data-share-copy]");
   copy?.addEventListener("click", async () => {
-    try { await navigator.clipboard.writeText(full); copy.lastChild.textContent = " Скопировано"; }
-    catch { window.prompt("Скопируйте текст:", full); }
+    try { await navigator.clipboard.writeText(plain); copy.lastChild.textContent = " Скопировано"; }
+    catch { window.prompt("Скопируйте текст:", plain); }
   });
 
   // Системное меню «Поделиться» умеет передавать сами фотографии (Android, iOS, Windows).
@@ -85,7 +107,7 @@ document.querySelectorAll("[data-share]").forEach(bar => {
         const ext = (blob.type.split("/")[1] || "jpg").replace("jpeg", "jpg");
         return new File([blob], `foto-${i + 1}.${ext}`, { type: blob.type });
       }));
-      const data = { title, text: full };
+      const data = { title, text: plain };
       if (files.length && navigator.canShare?.({ files })) data.files = files;
       await navigator.share(data);
     } catch (error) {
