@@ -80,6 +80,12 @@ class EstimateFlowTests(TestCase):
         with self.assertRaises(ValidationError):
             services.add_line(estimate=estimate, actor=self.customer, revision=old_revision, stage=self.stage, name="Ещё", unit="шт", quantity="1", price="1")
 
+    def test_missing_or_broken_revision_is_validation_error(self):
+        estimate = services.create_draft(project=self.project, actor=self.foreman)
+        for revision in (None, "", "abc", [1]):
+            with self.subTest(revision=revision), self.assertRaises(ValidationError):
+                services.add_line(estimate=estimate, actor=self.foreman, revision=revision, stage=self.stage, name="Ещё", unit="шт", quantity="1", price="1")
+
     def test_executor_and_stranger_have_no_access(self):
         estimate = services.create_draft(project=self.project, actor=self.foreman)
         with self.assertRaises(PermissionDenied):
