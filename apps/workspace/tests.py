@@ -208,9 +208,9 @@ class Milestone40PagesTests(TestCase):
         self.assertEqual((draft.name, draft.address), ("Черновик 2", "Ахунбаева 5"))
         self.client.force_login(self.worker)
         self.assertEqual(self.client.get(reverse("workspace:project-edit", args=[self.project.pk])).status_code, 403)
-        self.client.force_login(self.owner)
         self.client.post(reverse("workspace:project-delete", args=[self.project.pk]))
-        self.assertTrue(Project.objects.filter(pk=self.project.pk).exists())  # has stages
+        self.assertTrue(Project.objects.filter(pk=self.project.pk).exists())  # only the owner may delete
+        self.client.force_login(self.owner)
         from apps.projects.services import invite_member
         invite_member(project=draft, actor=self.owner, email="new@example.com", role="executor")
         self.client.post(reverse("workspace:project-delete", args=[draft.pk]))  # invitations go away with the project

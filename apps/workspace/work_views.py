@@ -49,7 +49,7 @@ def project_detail(request, project_id):
     is_owner = membership.role == "customer" and project.created_by_id == request.user.pk
     return render(request, "workspace/project_detail.html", context(
         request, project, "project", progress=progress, next_steps=next_steps, is_owner=is_owner,
-        delete_blockers=project_services.project_delete_blockers(project) if is_owner else [],
+        delete_summary=project_services.project_delete_summary(project) if is_owner else [],
         other_members=project.members.filter(is_active=True).exclude(user=request.user).count(),
         pending_invitations=project.invitations.filter(status="pending").count()))
 

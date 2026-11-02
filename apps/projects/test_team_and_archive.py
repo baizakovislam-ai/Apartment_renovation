@@ -1,4 +1,6 @@
 """Team changes and project removal — the scenarios that blocked real use."""
+import io
+import os
 import shutil
 import tempfile
 from datetime import timedelta
@@ -6,19 +8,30 @@ from datetime import timedelta
 from django.contrib.auth import get_user_model
 from django.core import mail
 from django.test import TestCase, override_settings
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 from django.utils import timezone
+from PIL import Image
 from rest_framework.exceptions import ValidationError
 
+from apps.estimates import services as estimate_services
+from apps.quality.models import Remark, RemarkPhoto
+from apps.quality.services import create_remark
 from apps.estimates.testing import mark_started
 from apps.projects.models import Project, ProjectInvitation, ProjectMember
 from apps.projects.services import (accept_invitation, archive_project, create_project, invite_member, remove_member,
                                     restore_project)
-from apps.repairs.models import Task
+from apps.repairs.models import Photo, Task
 from apps.repairs.services import create_stage, update_stage
-from apps.repairs.task_services import create_task, task_action
+from apps.repairs.task_services import add_photo_report, create_task, task_action
 
 TEMP_MEDIA = tempfile.mkdtemp()
+
+
+def jpeg(name="photo.jpg"):
+    buffer = io.BytesIO()
+    Image.new("RGB", (60, 40), (180, 30, 30)).save(buffer, format="JPEG")
+    return SimpleUploadedFile(name, buffer.getvalue(), content_type="image/jpeg")
 
 
 @override_settings(PRIVATE_MEDIA_ROOT=TEMP_MEDIA, PASSWORD_HASHERS=["django.contrib.auth.hashers.MD5PasswordHasher"],
@@ -145,13 +158,9 @@ class TeamAndArchiveTests(TestCase):
         self.client.post(reverse("workspace:project-delete", args=[project.pk]))
         self.assertFalse(Project.objects.filter(pk=project.pk).exists())
 
-    def test_project_with_work_is_archived_instead_and_can_be_restored(self):
+    def test_project_with_work_can_be_archived_and_restored(self):
         self.task(self.worker_member)
         self.client.force_login(self.customer)
-        page = self.client.get(reverse("workspace:project", args=[self.project.pk]))
-        self.assertContains(page, "в проекте есть задачи")  # the reason is shown, not a vanished button
-        self.client.post(reverse("workspace:project-delete", args=[self.project.pk]))
-        self.assertTrue(Project.objects.filter(pk=self.project.pk).exists())
         self.client.post(reverse("workspace:project-archive", args=[self.project.pk]), {"action": "archive", "reason": ""})
         self.project.refresh_from_db()
         self.assertIsNone(self.project.archived_at)  # reason is required
@@ -166,6 +175,72 @@ class TeamAndArchiveTests(TestCase):
         restore_project(project=self.project, actor=self.customer)
         self.project.refresh_from_db()
         self.assertFalse(self.project.is_archived)
+
+    def draft_project_with_estimate(self):
+        project = create_project(user=self.customer, name="Черновик со сметой")
+        member = self.join(project, self.customer, self.foreman, "foreman")
+        stage = create_stage(project=project, actor=self.customer, name="План", start_date=self.today, end_date=self.today, responsible=member)
+        estimate = estimate_services.create_draft(project=project, actor=self.foreman)
+        estimate_services.add_line(estimate=estimate, actor=self.foreman, revision=estimate.revision, stage=stage,
+                                   name="Штукатурка", unit="м²", quantity="10", price="500")
+        calculation = estimate_services.create_calculation(project=project, actor=self.customer, name="Эконом")
+        estimate_services.add_item(calculation=calculation, actor=self.customer, work="Покраска", unit="м²", volume="5", price="100")
+        estimate.refresh_from_db()
+        return project, estimate
+
+    def test_project_with_draft_estimate_and_calculation_can_be_deleted(self):
+        project, _ = self.draft_project_with_estimate()
+        self.client.force_login(self.customer)
+        response = self.client.post(reverse("workspace:project-delete", args=[project.pk]))
+        self.assertRedirects(response, reverse("workspace:projects"))
+        self.assertFalse(Project.objects.filter(pk=project.pk).exists())
+
+    def test_project_with_all_work_is_deleted_for_everyone(self):
+        project, estimate = self.draft_project_with_estimate()
+        estimate_services.submit_estimate(estimate=estimate, actor=self.foreman)
+        estimate.refresh_from_db()
+        estimate_services.approve_estimate(estimate=estimate, actor=self.customer)
+        estimate_services.create_draft(project=project, actor=self.foreman)  # version 2, based on the approved one
+        mark_started(project)
+        member = self.join(project, self.customer, self.worker, "executor")
+        stage = project.stages.get()
+        update_stage(stage=stage, actor=self.customer, status="in_progress")
+        task =create_task(project=project, actor=self.customer, stage=stage, name="Стены", assignee=member, due_date=self.today)
+        task_action(task=task, actor=self.worker, action="start", version=task.version, text="")
+        add_photo_report(task=task, actor=self.worker, description="Готово", images=[jpeg()])
+        create_remark(project=project, actor=self.customer, stage=stage, description="Трещина", responsible=member,
+                      due_date=self.today, task=task, images=[jpeg()])
+        files = [photo.file.path for photo in Photo.objects.filter(report__project=project)]
+        files += [photo.file.path for photo in RemarkPhoto.objects.filter(remark__project=project)]
+        self.assertTrue(files and all(os.path.exists(path) for path in files))
+        archive_project(project=project, actor=self.customer, reason="Не нужен")
+
+        self.client.force_login(self.customer)
+        page = self.client.get(reverse("workspace:project", args=[project.pk]))
+        self.assertContains(page, "пропадёт у всех участников")
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(reverse("workspace:project-delete", args=[project.pk]))
+        self.assertRedirects(response, reverse("workspace:projects"))
+        self.assertFalse(Project.objects.filter(pk=project.pk).exists())
+        self.assertFalse(Task.objects.filter(pk=task.pk).exists())
+        self.assertFalse(Remark.objects.filter(stage=stage).exists())
+        self.assertFalse(any(os.path.exists(path) for path in files))  # photos are removed from disk too
+        self.client.force_login(self.worker)  # other members no longer see it
+        self.assertEqual(self.client.get(reverse("workspace:project", args=[project.pk])).status_code, 404)
+
+    def test_only_owner_deletes_project(self):
+        self.client.force_login(self.foreman)
+        self.client.post(reverse("workspace:project-delete", args=[self.project.pk]))
+        self.assertTrue(Project.objects.filter(pk=self.project.pk).exists())
+
+    def test_archived_project_can_be_deleted(self):
+        project = create_project(user=self.customer, name="Старый")
+        archive_project(project=project, actor=self.customer, reason="Не нужен")
+        self.client.force_login(self.customer)
+        self.assertContains(self.client.get(reverse("workspace:project", args=[project.pk])), "Удалить проект")
+        response = self.client.post(reverse("workspace:project-delete", args=[project.pk]))
+        self.assertRedirects(response, reverse("workspace:projects"))
+        self.assertFalse(Project.objects.filter(pk=project.pk).exists())
 
     def test_only_customer_archives(self):
         with self.assertRaises(Exception):

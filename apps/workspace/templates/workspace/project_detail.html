@@ -45,18 +45,17 @@
 <small>{{ percent }}% · задач выполнено {{ stage.task_done }} из {{ stage.task_total }}</small>
 </div>{% empty %}<div class="empty-state compact"><h3>Этапов пока нет</h3><p>Добавьте этапы, чтобы видеть прогресс.</p></div>{% endfor %}</section>
 </div>
-{% if is_owner and not is_archived %}<section class="card danger-zone" id="danger">
+{% if is_owner %}<section class="card danger-zone" id="danger">
 <div class="danger-zone__part">
 <h2>Удалить проект</h2>
-{% if delete_blockers %}<p class="muted-text">Безвозвратно удалить нельзя: {{ delete_blockers|join:', ' }}. По ТЗ рабочие записи не стираются — отправьте проект в архив.</p>
-{% else %}<p class="muted-text">Проект удалится вместе с этапами без задач{% if other_members %}, командой ({{ other_members }} чел. потеряют доступ){% endif %}{% if pending_invitations %} и приглашениями ({{ pending_invitations }}){% endif %}. Восстановить будет нельзя.</p>
-<form method="post" action="{% url 'workspace:project-delete' project.pk %}" data-confirm="Удалить проект «{{ project.name }}» без возможности восстановления?">{% csrf_token %}<button class="button button--outline-danger" type="submit">Удалить проект</button></form>{% endif %}
+<p class="muted-text">Проект удалится полностью и пропадёт у всех участников{% if other_members %} ({{ other_members }} чел. потеряют доступ){% endif %}: этапы, задачи, фотоотчёты, замечания, сметы, расчёты, приглашения и история.{% if delete_summary %} Сейчас в проекте — {{ delete_summary|join:', ' }}.{% endif %} Восстановить будет нельзя.</p>
+<form method="post" action="{% url 'workspace:project-delete' project.pk %}" data-confirm="Удалить проект «{{ project.name }}» со всеми данными у всех участников? Восстановить будет нельзя.">{% csrf_token %}<button class="button button--outline-danger" type="submit">Удалить проект</button></form>
 </div>
-<div class="danger-zone__part">
+{% if not is_archived %}<div class="danger-zone__part">
 <h2>Отправить в архив</h2>
 <p class="muted-text">Проект скроется из списка, данные и история сохранятся. Вернуть можно в любой момент.</p>
 <form method="post" action="{% url 'workspace:project-archive' project.pk %}" data-once>{% csrf_token %}<input type="hidden" name="action" value="archive">
 <div class="field"><label for="archive-reason">Причина</label><input id="archive-reason" name="reason" required placeholder="Например, ремонт отменён заказчиком"></div>
 <button class="button button--secondary" type="submit">В архив</button></form>
-</div>
+</div>{% endif %}
 </section>{% elif membership.role == 'customer' and not is_archived %}<p class="muted-text danger-note">Удалить или архивировать проект может только заказчик, который его создал.</p>{% endif %}{% endblock %}

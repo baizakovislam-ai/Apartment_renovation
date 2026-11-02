@@ -88,32 +88,46 @@ def update_project(*, project, actor, **data):
     return project
 
 
-def project_delete_blockers(project):
-    """Work records that must never be erased (ТЗ 4.12). Team, invitations and empty stages may go with the project."""
-    reasons = []
-    if project.tasks.exists():
-        reasons.append("в проекте есть задачи")
-    if project.photo_reports.exists():
-        reasons.append("есть фотоотчёты")
-    if project.remarks.exists():
-        reasons.append("есть замечания")
-    if project.stage_decisions.exists():
-        reasons.append("этапы уже передавались на приёмку")
-    return reasons
+def project_delete_summary(project):
+    """What a full deletion will erase, shown to the owner before they confirm."""
+    counts = [
+        (project.stages.count(), "этапов"),
+        (project.tasks.count(), "задач"),
+        (project.photo_reports.count(), "фотоотчётов"),
+        (project.remarks.count(), "замечаний"),
+        (project.estimates.count(), "версий сметы"),
+        (project.calculations.count(), "расчётов"),
+        (project.members.filter(is_active=True).count(), "участников"),
+    ]
+    return [f"{label}: {count}" for count, label in counts if count]
 
 
 @atomic_operation
 def delete_project(*, project, actor):
+    """Erase the project with everything in it, for every member. Only the customer who created it may do this."""
+    from apps.estimates.models import Estimate
+    from apps.quality.models import RemarkComment, RemarkPhoto
+    from apps.repairs.models import Photo
+
     project = lock_project(project, allow_archived=True)
     require_customer(project, actor)
     if project.created_by_id != actor.pk:
         raise ValidationError("Удалить проект может только заказчик, который его создал.")
-    blockers = project_delete_blockers(project)
-    if blockers:
-        raise ValidationError("Проект нельзя удалить безвозвратно: " + ", ".join(blockers) + ". Отправьте его в архив.")
-    # Stages are protected from cascading, so remove the (empty) stages first; members, invitations and history follow the project.
+    files = [photo.file for photo in Photo.objects.filter(report__project=project)]
+    files += [photo.file for photo in RemarkPhoto.objects.filter(remark__project=project)]
+    # Work records are protected from cascading deletes, so remove them from the most dependent up.
+    project.change_requests.all().delete()
+    Estimate.objects.filter(project=project).update(based_on=None)
+    project.estimates.all().delete()
+    RemarkComment.objects.filter(remark__project=project).delete()
+    project.remarks.all().delete()
+    project.stage_decisions.all().delete()
+    project.photo_reports.all().delete()
+    project.tasks.all().delete()
     project.stages.all().delete()
-    project.delete()
+    project.delete()  # members, invitations, calculations and history go with it
+    # Remove photo files from disk only once the database deletion is final.
+    transaction.on_commit(lambda: [file.delete(save=False) for file in files if file])
 
 
 @atomic_operation
