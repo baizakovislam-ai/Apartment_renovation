@@ -3,7 +3,7 @@ from django.urls import include, path
 
 from apps.finances.views import expense_document
 from apps.quality.views import remark_photo_file
-from apps.repairs.views import photo_file
+from apps.repairs.views import photo_file, shared_photo, shared_report
 
 urlpatterns = [
     path('accounts/', include('apps.accounts.urls')),
@@ -17,6 +17,8 @@ urlpatterns = [
     path("api/", include("apps.pricing.urls")),
     path("api/", include("apps.reports.urls")),
     path("files/photos/<int:pk>/", photo_file, name="photo-file"),
+    path("share/reports/<str:token>/", shared_report, name="shared-report"),
+    path("share/reports/<str:token>/photos/<int:pk>/", shared_photo, name="shared-photo"),
     path("files/remark-photos/<int:pk>/", remark_photo_file, name="remark-photo-file"),
     path("files/expense-documents/<int:pk>/", expense_document, name="expense-document"),
     path("", include("apps.workspace.urls")),

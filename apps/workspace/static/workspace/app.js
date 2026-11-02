@@ -51,3 +51,66 @@ document.querySelectorAll("[data-fill-volume]").forEach(button => button.addEven
   if (unit && !unit.value) unit.value = "м²";
   input.focus();
 }));
+// «Отправить фото» в WhatsApp / Telegram: передаём сами файлы фотографий.
+// Браузер открывает системное окно «Поделиться» (Windows, Android, iOS) — в нём выбирают WhatsApp или Telegram.
+// Если браузер не умеет передавать файлы, фото скачиваются, а мессенджер открывается с подписью — фото прикрепляют вручную.
+document.querySelectorAll("[data-share]").forEach(bar => {
+  const d = bar.dataset;
+  const status = bar.querySelector("[data-share-status]");
+  const say = message => { if (status) { status.textContent = message; status.hidden = !message; } };
+  const caption = [
+    `📷 Фотоотчёт: ${d.shareTask}`,
+    `🔧 Этап: ${d.shareStage} · ${d.shareProject}`,
+    `👤 ${d.shareAuthor}, ${d.shareDate}`,
+    `📝 ${d.shareDescription}`,
+  ].join("\n");
+  const enc = encodeURIComponent;
+  const chatLinks = {
+    whatsapp: `https://wa.me/?text=${enc(caption)}`,
+    telegram: `https://t.me/share/url?url=${enc(d.shareUrl)}&text=${enc(caption)}`,
+  };
+  let files;
+  const loadFiles = async () => {
+    if (files) return files;
+    const photos = (d.sharePhotos || "").split(" ").filter(Boolean);
+    files = await Promise.all(photos.map(async (src, i) => {
+      const response = await fetch(src, { credentials: "same-origin" });
+      if (!response.ok) throw new Error(`Фото не загрузилось (${response.status})`);
+      const blob = await response.blob();
+      const ext = (blob.type.split("/")[1] || "jpg").replace("jpeg", "jpg");
+      return new File([blob], `foto-${i + 1}.${ext}`, { type: blob.type });
+    }));
+    return files;
+  };
+  const download = list => list.forEach(file => {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(file); a.download = file.name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+  });
+
+  bar.querySelectorAll("[data-share-to]").forEach(button => button.addEventListener("click", async () => {
+    const app = button.dataset.shareTo;
+    const name = app === "whatsapp" ? "WhatsApp" : "Telegram";
+    // Окно мессенджера открываем сразу, пока действует нажатие (иначе браузер заблокирует всплывающее окно).
+    const canShareFiles = !!(navigator.share && navigator.canShare);
+    const chat = canShareFiles ? null : window.open("about:blank", "_blank");
+    button.disabled = true; say("Готовлю фото…");
+    try {
+      const list = await loadFiles();
+      if (canShareFiles && list.length && navigator.canShare({ files: list })) {
+        say(`Выберите ${name} в окне «Поделиться».`);
+        await navigator.share({ files: list, title: `Фотоотчёт: ${d.shareTask}`, text: caption });
+        say("");
+      } else {
+        download(list);
+        if (chat) chat.location.href = chatLinks[app]; else window.open(chatLinks[app], "_blank");
+        say(`Фото скачаны (${list.length} шт.) — прикрепите их в открывшемся чате ${name}.`);
+      }
+    } catch (error) {
+      chat?.close();
+      if (error?.name === "AbortError") say("");
+      else { console.warn("Не удалось отправить фотоотчёт", error); say("Не удалось отправить фото. Обновите страницу и попробуйте ещё раз."); }
+    } finally { button.disabled = false; }
+  }));
+});
