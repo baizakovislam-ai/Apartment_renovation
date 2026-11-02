@@ -17,7 +17,7 @@ from apps.projects.models import Project
 from apps.projects.services import record_event, update_project
 from apps.quality.services import accept_stage, create_remark, submit_stage
 from apps.repairs.services import create_stage, update_stage
-from apps.repairs.models import Task
+from apps.repairs.models import Stage, Task
 from apps.repairs.task_services import add_photo_report, create_task, task_action
 
 DEMO_NAME = "Демонстрационный ремонт"
@@ -51,8 +51,14 @@ def fill_demo(project, customer, foreman):
                    description="Капитальный ремонт двухкомнатной квартиры: демонтаж, электрика, штукатурка, чистовая отделка.")
 
     def plan(name, start, end, position):
-        return create_stage(project=project, actor=foreman, name=name, start_date=today + timedelta(days=start),
-                            end_date=today + timedelta(days=end), responsible=foreman_member, position=position)
+        dates = {"start_date": today + timedelta(days=start), "end_date": today + timedelta(days=end)}
+        if end >= 0:
+            return create_stage(project=project, actor=foreman, name=name, responsible=foreman_member, position=position, **dates)
+        # Demo history: the service refuses stages that are already over, so they are written directly.
+        created = Stage.objects.create(project=project, name=name, responsible=foreman_member, position=position,
+                                       created_by=foreman, **dates)
+        record_event(project, foreman, "stage.created", stage_id=created.pk, name=name)
+        return created
 
     def start(stage_obj):
         update_stage(stage=stage_obj, actor=foreman, status="in_progress")

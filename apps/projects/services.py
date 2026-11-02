@@ -53,6 +53,13 @@ def validate_project(data, instance=None):
     end = data.get("end_date", instance.end_date if instance else None)
     if start and end and end < start:
         raise ValidationError({"end_date": "Окончание ремонта не может быть раньше начала."})
+    if instance is not None:
+        # Stages must stay inside the renovation dates (see apps/repairs/services.py validate_stage).
+        stages = instance.stages.exclude(status="cancelled")
+        if "start_date" in data and start and start != instance.start_date and stages.filter(start_date__lt=start).exists():
+            raise ValidationError({"start_date": "Есть этапы, которые начинаются раньше. Сначала измените даты этапов."})
+        if "end_date" in data and end and end != instance.end_date and stages.filter(end_date__gt=end).exists():
+            raise ValidationError({"end_date": "Есть этапы, которые заканчиваются позже. Сначала измените даты этапов."})
     if data.get("area") is not None and data["area"] <= 0:
         raise ValidationError({"area": "Площадь должна быть больше нуля."})
     if data.get("budget") is not None and data["budget"] < 0:

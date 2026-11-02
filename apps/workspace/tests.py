@@ -1,3 +1,13 @@
+from datetime import timedelta
+
+from django.utils import timezone
+
+
+def day(offset):
+    """A date string relative to today, so the tests do not expire."""
+    return (timezone.localdate() + timedelta(days=offset)).isoformat()
+
+
 from django.contrib.auth import get_user_model
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
@@ -21,13 +31,13 @@ class WorkspaceTests(TestCase):
         cls.project = create_project(user=cls.owner, name="Квартира на Киевской")
         cls.foreman_member = ProjectMember.objects.create(project=cls.project, user=cls.foreman, role="foreman")
         ProjectMember.objects.create(project=cls.project, user=cls.worker, role="executor")
-        cls.stage = create_stage(project=cls.project, actor=cls.owner, name="Электрика", start_date="2026-10-20", end_date="2026-10-25", responsible=cls.foreman_member)
+        cls.stage = create_stage(project=cls.project, actor=cls.owner, name="Электрика", start_date=day(10), end_date=day(15), responsible=cls.foreman_member)
 
     def setUp(self):
         self.client.force_login(self.owner)
 
     def stage_payload(self):
-        return {"name": "Штукатурка", "description": "Стены", "start_date": "2026-10-21", "end_date": "2026-10-25", "responsible": self.foreman_member.pk, "position": 2, "status": "planned"}
+        return {"name": "Штукатурка", "description": "Стены", "start_date": day(11), "end_date": day(15), "responsible": self.foreman_member.pk, "position": 2, "status": "planned"}
 
     def test_workspace_pages_render_for_owner(self):
         for name, args in [("dashboard", []), ("projects", []), ("project-create", []), ("stages", [self.project.pk]), ("members", [self.project.pk]), ("history", [self.project.pk]), ("stage-create", [self.project.pk]), ("stage-edit", [self.project.pk, self.stage.pk])]:
@@ -68,7 +78,7 @@ class WorkspaceTests(TestCase):
         self.assertEqual(response.status_code, 302)
         stage.refresh_from_db()
         self.assertEqual(stage.name, "Новая штукатурка")
-        response = self.client.post(reverse("workspace:stage-create", args=[self.project.pk]), {**self.stage_payload(), "end_date": "2026-10-01"})
+        response = self.client.post(reverse("workspace:stage-create", args=[self.project.pk]), {**self.stage_payload(), "end_date": day(-10)})
         self.assertContains(response, "Окончание не может быть раньше начала")
         self.assertEqual(Stage.objects.count(), 2)
 
@@ -198,7 +208,7 @@ class Milestone40PagesTests(TestCase):
     def test_project_create_edit_and_delete_draft(self):
         self.client.force_login(self.owner)
         self.client.post(reverse("workspace:project-create"), {"name": "Черновик", "address": "Ахунбаева 5", "area": "54.5", "budget": "300000",
-                                                             "start_date": "2026-11-01", "end_date": "2026-10-01"})
+                                                             "start_date": day(30), "end_date": day(-10)})
         self.assertFalse(Project.objects.filter(name="Черновик").exists())  # dates in wrong order
         self.client.post(reverse("workspace:project-create"), {"name": "Черновик", "area": "54.5"})
         draft = Project.objects.get(name="Черновик")

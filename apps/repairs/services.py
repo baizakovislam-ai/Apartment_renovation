@@ -1,4 +1,6 @@
 from django.db.models.deletion import ProtectedError
+from django.utils import timezone
+from django.utils.dateparse import parse_date
 from rest_framework.exceptions import ValidationError
 
 from apps.projects.models import ProjectMember
@@ -10,8 +12,19 @@ from .permissions import require_manager
 def validate_stage(project, data, instance=None):
     start = data.get("start_date", instance.start_date if instance else None)
     end = data.get("end_date", instance.end_date if instance else None)
+    start, end = (parse_date(value) if isinstance(value, str) else value for value in (start, end))
     if start is not None and end is not None and end < start:
         raise ValidationError({"end_date": "Окончание не может быть раньше начала."})
+    # Only new or moved dates are checked, so an old stage can still be renamed or started.
+    start_changed = instance is None or start != instance.start_date
+    end_changed = instance is None or end != instance.end_date
+    if start_changed and start is not None and project.start_date and start < project.start_date:
+        raise ValidationError({"start_date": f"Этап не может начаться раньше начала ремонта ({project.start_date:%d.%m.%Y})."})
+    if end_changed and end is not None and project.end_date and end > project.end_date:
+        raise ValidationError({"end_date": f"Этап не может закончиться позже окончания ремонта ({project.end_date:%d.%m.%Y})."})
+    if end_changed and end is not None and end < timezone.localdate():
+        # Task deadlines cannot be in the past, so a stage that is already over could never get a task.
+        raise ValidationError({"end_date": "Окончание этапа не может быть в прошлом."})
     if instance is not None and instance.tasks.exclude(due_date__range=(start, end)).exists():
         raise ValidationError({"end_date": "Сроки задач этапа выходят за новые даты. Сначала измените сроки задач."})
     responsible = data.get("responsible", instance.responsible if instance else None)

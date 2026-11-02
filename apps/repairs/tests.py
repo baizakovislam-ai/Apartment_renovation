@@ -1,4 +1,15 @@
+from datetime import timedelta
+
+from django.utils import timezone
+
+
+def day(offset):
+    """A date string relative to today, so the tests do not expire."""
+    return (timezone.localdate() + timedelta(days=offset)).isoformat()
+
+
 from django.contrib.auth import get_user_model
+from rest_framework.exceptions import ValidationError
 from rest_framework.test import APITestCase
 
 from apps.estimates.testing import mark_started
@@ -20,7 +31,7 @@ class StageAPITests(APITestCase):
         self.foreman_member = ProjectMember.objects.create(project=self.project, user=self.foreman, role="foreman")
         self.executor_member = ProjectMember.objects.create(project=self.project, user=self.executor, role="executor")
         self.url = f"/api/projects/{self.project.pk}/stages/"
-        self.payload = {"name": "Электрика", "description": "Прокладка кабеля", "start_date": "2026-10-20", "end_date": "2026-10-25", "responsible": self.foreman_member.pk}
+        self.payload = {"name": "Электрика", "description": "Прокладка кабеля", "start_date": day(10), "end_date": day(15), "responsible": self.foreman_member.pk}
         self.client.force_authenticate(self.customer)
 
     def create_stage(self):
@@ -62,12 +73,29 @@ class StageAPITests(APITestCase):
         self.assertEqual(self.client.get(self.url).status_code, 403)
 
     def test_invalid_dates_on_creation_and_partial_update(self):
-        response = self.client.post(self.url, {**self.payload, "end_date": "2026-10-01"})
+        response = self.client.post(self.url, {**self.payload, "end_date": day(-10)})
         self.assertEqual(response.status_code, 400)
         self.assertFalse(Stage.objects.exists())
         created = self.create_stage()
-        self.assertEqual(self.client.patch(f"/api/stages/{created.data['id']}/", {"start_date": "2026-11-01"}).status_code, 400)
+        self.assertEqual(self.client.patch(f"/api/stages/{created.data['id']}/", {"start_date": day(30)}).status_code, 400)
         self.assertEqual(ProjectEvent.objects.filter(action="stage.updated").count(), 0)
+
+    def test_stage_dates_stay_inside_project_and_not_in_past(self):
+        from datetime import date
+        from apps.projects.services import update_project
+        update_project(project=self.project, actor=self.customer, start_date=date.fromisoformat(day(-5)), end_date=date.fromisoformat(day(40)))
+        for dates, field in [((day(-20), day(5)), "start_date"),   # starts before the renovation
+                             ((day(10), day(60)), "end_date"),     # ends after the renovation
+                             ((day(-4), day(-1)), "end_date")]:    # already over: no task could be added
+            response = self.client.post(self.url, {**self.payload, "start_date": dates[0], "end_date": dates[1]})
+            self.assertEqual(response.status_code, 400, dates)
+            self.assertIn(field, response.data)
+        self.assertEqual(self.client.post(self.url, {**self.payload, "start_date": day(-3), "end_date": day(2)}).status_code, 201)
+        created = self.create_stage()
+        self.assertEqual(self.client.patch(f"/api/stages/{created.data['id']}/", {"end_date": day(50)}).status_code, 400)
+        # The project cannot shrink so that a stage falls outside it.
+        with self.assertRaises(ValidationError):
+            update_project(project=self.project, actor=self.customer, end_date=date.fromisoformat(day(12)))
 
     def test_responsible_must_belong_to_same_project(self):
         other_project = create_project(user=self.stranger, name="Другой")
