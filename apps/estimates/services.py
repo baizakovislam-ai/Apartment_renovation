@@ -66,7 +66,11 @@ def lock_estimate(estimate):
 
 
 def check_revision(estimate, revision):
-    if revision in (None, "") or int(revision) != estimate.revision:
+    try:
+        current = int(revision)
+    except (TypeError, ValueError):
+        raise ValidationError({"revision": "Не передана версия сметы. Обновите страницу и повторите."})
+    if current != estimate.revision:
         raise ValidationError({"revision": STALE})
 
 
