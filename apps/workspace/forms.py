@@ -325,3 +325,55 @@ class FromPriceListForm(forms.Form):
         super().__init__(*args, **kwargs)
         self.fields["price_item"].queryset = items
         self.fields["price_item"].label_from_instance = lambda item: f"{item.name} — {item.price:.2f} сом/{item.unit}"
+
+
+class ExpenseForm(forms.Form):
+    """Expense (ТЗ FR12): сумма, дата, получатель, назначение, категория, подтверждающий документ."""
+
+    amount = forms.DecimalField(label="Сумма, сом", min_value=Decimal("0.01"), max_digits=14, decimal_places=2,
+                                widget=forms.NumberInput(attrs={"step": "0.01", "min": "0.01", "inputmode": "decimal", "placeholder": "0,00"}))
+    date = forms.DateField(label="Дата оплаты", widget=forms.DateInput(**DATE_WIDGET))
+    recipient = forms.CharField(label="Получатель", max_length=200,
+                                widget=forms.TextInput(attrs={"placeholder": "Кому заплатили: магазин, бригада, ИП"}))
+    purpose = forms.CharField(label="Назначение", max_length=255,
+                              widget=forms.TextInput(attrs={"placeholder": "За что: например, плиточный клей 25 кг × 12"}))
+    category = forms.ChoiceField(label="Категория", choices=CostType.choices, initial=CostType.MATERIAL,
+                                 help_text="Категории те же, что и виды затрат в смете — так видно отклонение от сметы.")
+    stage = StageChoiceField(label="Этап (необязательно)", queryset=Stage.objects.none(), required=False, empty_label="— без привязки к этапу —")
+    note = forms.CharField(label="Примечание", required=False, widget=forms.Textarea(attrs={"rows": 2, "placeholder": "Номер чека, условия оплаты"}))
+    document = forms.FileField(label="Подтверждающий документ", required=False,
+                               widget=forms.ClearableFileInput(attrs={"accept": "application/pdf,image/jpeg,image/png,image/webp"}),
+                               help_text="Чек, накладная или акт: PDF, JPEG, PNG или WebP до 8 МБ.")
+    remove_document = forms.BooleanField(label="Убрать приложенный документ", required=False)
+    send_now = forms.BooleanField(label="Сразу отправить заказчику на подтверждение", required=False, initial=True,
+                                help_text="Без отметки расход останется черновиком: его видите только вы, можно дополнить и отправить позже.")
+    request_id = forms.UUIDField(widget=forms.HiddenInput, required=False)
+    revision = forms.IntegerField(widget=forms.HiddenInput, required=False)
+
+    def __init__(self, *args, project, expense=None, author_role="customer", **kwargs):
+        if expense is not None and "initial" not in kwargs:
+            kwargs["initial"] = {name: getattr(expense, name) for name in ["amount", "date", "recipient", "purpose", "category", "stage", "note", "revision"]}
+        kwargs.setdefault("initial", {}).setdefault("request_id", uuid.uuid4())
+        kwargs["initial"].setdefault("date", timezone.localdate())
+        super().__init__(*args, **kwargs)
+        self.fields["stage"].queryset = project.stages.exclude(status="cancelled")
+        self.fields["date"].widget.attrs["max"] = timezone.localdate().isoformat()
+        if author_role == "customer":
+            self.fields["send_now"].label = "Сразу отправить на подтверждение"
+            self.fields["send_now"].help_text = "Подтверждаете расходы вы: после отправки расход появится в списке «Ждут подтверждения»."
+        if expense is None:
+            del self.fields["remove_document"]
+            del self.fields["revision"]
+        else:
+            del self.fields["send_now"]
+            del self.fields["request_id"]
+            if expense.document:
+                self.fields["document"].help_text = f"Сейчас приложен «{expense.document_name}». Выберите новый файл, чтобы заменить."
+            else:
+                del self.fields["remove_document"]
+
+    def clean_date(self):
+        day = self.cleaned_data["date"]
+        if day and day > timezone.localdate():
+            raise forms.ValidationError("Дата расхода не может быть в будущем.")
+        return day

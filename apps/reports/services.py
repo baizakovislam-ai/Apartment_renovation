@@ -18,11 +18,11 @@ from apps.repairs.task_services import project_progress
 
 
 def confirmed_expenses(project):
-    """Confirmed expenses (FR12). Expense records are not part of the system yet, so there is nothing to list.
+    """Confirmed expenses (FR12): only these are the actual costs; drafts, pending and rejected ones are left out.
 
-    While this returns None the final cost is taken from the approved estimate together with its approved changes.
+    While there are none, the final cost is taken from the approved estimate together with its approved changes.
     """
-    return None
+    return list(project.expenses.filter(status="confirmed").select_related("stage").order_by("date", "number"))
 
 
 def stage_rows(project, today):
@@ -73,7 +73,7 @@ def build_report(project, user):
                       .order_by("stage__position", "completed_at", "id"))
     remarks = list(Remark.objects.filter(project=project, withdrawn=False).select_related("stage", "responsible__user")
                    .order_by("created_at", "id"))
-    if expenses is not None:
+    if expenses:
         final_cost, cost_source = money(sum((expense.amount for expense in expenses), Decimal("0"))), "подтверждённым расходам"
     elif estimate["approved"] is not None:
         final_cost, cost_source = estimate["approved"].total, "утверждённой смете с учётом одобренных изменений"

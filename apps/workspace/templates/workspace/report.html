@@ -53,7 +53,7 @@
 <dt>Одобренные изменения</dt><dd>{{ report.estimate.changes|length }} заявк. на {{ report.estimate.changes_total|signed_money }}</dd>
 <dt>Итого по смете</dt><dd><strong>{{ report.estimate.approved.total|money }}</strong></dd>
 </dl>{% else %}<p class="muted-text">Утверждённой сметы нет.</p>{% endif %}
-<p class="muted-text" style="margin-top:10px">{% if report.expenses is None %}Учёт фактических расходов в системе пока не ведётся, поэтому итоговая стоимость указана по утверждённой смете с учётом одобренных изменений.{% else %}Подтверждённых расходов: {{ report.expenses|length }}.{% endif %} Полная таблица сметы — в PDF.</p>
+<p class="muted-text" style="margin-top:10px">{% if not report.expenses %}Подтверждённых заказчиком расходов нет, поэтому итоговая стоимость указана по утверждённой смете с учётом одобренных изменений.{% else %}Подтверждённых расходов: {{ report.expenses|length }}, итоговая стоимость посчитана по ним. <a href="{% url 'workspace:expenses' project.pk %}?status=confirmed">Открыть расходы</a>.{% endif %} Полная таблица сметы — в PDF.</p>
 </section>
 
 <section class="card" style="margin-top:16px">

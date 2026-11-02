@@ -23,7 +23,7 @@ class ReportView(APIView):
                         "progress": row["progress"]} for row in report["stages"]],
             "estimate": {"id": approved.pk, "number": approved.number, "total": approved.total} if approved else None,
             "initial_estimate_total": report["estimate"]["initial_total"], "approved_changes": len(report["estimate"]["changes"]),
-            "approved_changes_total": report["estimate"]["changes_total"], "expenses": None if report["expenses"] is None else len(report["expenses"]),
+            "approved_changes_total": report["estimate"]["changes_total"], "expenses": len(report["expenses"]),
             "tasks_done": len(report["done_tasks"]), "photo_reports": report["photo_reports"],
             "remarks": len(report["remarks"]), "remarks_open": report["remarks_open"],
             "final_cost": report["final_cost"], "cost_source": report["cost_source"], "budget": report["budget"],

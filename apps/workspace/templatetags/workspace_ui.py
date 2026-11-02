@@ -57,7 +57,7 @@ def status_tone(status):
     return {"planned": "gray", "in_progress": "blue", "completed": "teal", "pending_acceptance": "orange", "accepted": "green", "cancelled": "red",
             "todo": "gray", "review": "orange", "done": "green", "open": "red", "fixed": "orange", "closed": "green",
             "planning": "gray", "draft": "gray", "pending": "orange", "approved": "green", "rejected": "red", "superseded": "gray", "withdrawn": "gray",
-            "add": "green", "update": "blue", "remove": "red", "same": "gray"}.get(status, "gray")
+            "confirmed": "green", "add": "green", "update": "blue", "remove": "red", "same": "gray"}.get(status, "gray")
 
 
 @register.filter
@@ -98,7 +98,10 @@ def event_label(action):
             "estimate_change.item_set": "Изменена позиция в заявке на изменение сметы",
             "estimate_change.item_deleted": "Отменено изменение позиции в заявке",
             "estimate_change.submitted": "Изменение сметы отправлено на согласование", "estimate_change.withdrawn": "Заявка на изменение сметы отозвана",
-            "estimate_change.approved": "Изменение сметы одобрено", "estimate_change.rejected": "Изменение сметы отклонено"}.get(action, action)
+            "estimate_change.approved": "Изменение сметы одобрено", "estimate_change.rejected": "Изменение сметы отклонено",
+            "expense.created": "Добавлен расход", "expense.updated": "Изменён расход", "expense.deleted": "Удалён черновик расхода",
+            "expense.submitted": "Расход отправлен на подтверждение", "expense.withdrawn": "Расход отозван в черновик",
+            "expense.confirmed": "Расход подтверждён", "expense.rejected": "Расход отклонён"}.get(action, action)
 
 
 @register.filter

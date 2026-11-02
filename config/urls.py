@@ -1,6 +1,7 @@
 from django.contrib import admin
 from django.urls import include, path
 
+from apps.finances.views import expense_document
 from apps.quality.views import remark_photo_file
 from apps.repairs.views import photo_file
 
@@ -12,9 +13,11 @@ urlpatterns = [
     path("api/", include("apps.repairs.urls")),
     path("api/", include("apps.quality.urls")),
     path("api/", include("apps.estimates.urls")),
+    path("api/", include("apps.finances.urls")),
     path("api/", include("apps.pricing.urls")),
     path("api/", include("apps.reports.urls")),
     path("files/photos/<int:pk>/", photo_file, name="photo-file"),
     path("files/remark-photos/<int:pk>/", remark_photo_file, name="remark-photo-file"),
+    path("files/expense-documents/<int:pk>/", expense_document, name="expense-document"),
     path("", include("apps.workspace.urls")),
 ]
