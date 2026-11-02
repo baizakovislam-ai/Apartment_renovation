@@ -25,6 +25,10 @@ def validate_stage(project, data, instance=None):
             raise ValidationError({"status": "Новый этап должен быть запланированным."})
     elif target not in transitions.get(instance.status, set()):
         raise ValidationError({"status": "Недопустимый переход. Приёмка и отмена выполняются отдельным модулем."})
+    if instance is not None and target == "completed" and instance.status != "completed":
+        unfinished = instance.tasks.exclude(status="done").count()
+        if unfinished:
+            raise ValidationError({"status": f"В этапе есть невыполненные задачи ({unfinished}). Сначала завершите их."})
 
 
 @atomic_operation

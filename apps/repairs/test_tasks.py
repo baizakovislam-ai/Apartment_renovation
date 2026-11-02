@@ -66,6 +66,22 @@ class TaskWorkflowTests(APITestCase):
         self.client.force_authenticate(self.customer)
         self.assertEqual(self.client.patch(f"/api/stages/{self.stage.pk}/", {"status": "in_progress"}).status_code, 200)
 
+    def test_stage_is_completed_only_when_all_tasks_are_done(self):
+        task = self.create_task()
+        self.start_stage()
+        stage_url = f"/api/stages/{self.stage.pk}/"
+        response = self.client.patch(stage_url, {"status": "completed"})
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("status", response.data)
+        for action, user in [("start", self.executor), ("submit", self.executor), ("approve", self.foreman)]:
+            self.assertEqual(self.act(task["id"], action, user, text="Готово").status_code, 200)
+        self.client.force_authenticate(self.customer)
+        self.assertEqual(self.client.patch(stage_url, {"status": "completed"}).status_code, 200)
+        self.client.force_authenticate(self.foreman)
+        self.assertEqual(self.client.post(self.url, self.payload).status_code, 400)  # no new tasks in a completed stage
+        self.assertEqual(self.client.patch(stage_url, {"status": "in_progress"}).status_code, 200)
+        self.create_task()
+
     def test_manager_creates_task_and_history_is_recorded(self):
         data = self.create_task()
         self.assertEqual(data["status"], "todo")

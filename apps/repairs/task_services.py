@@ -52,6 +52,8 @@ def validate_task(project, data, instance=None):
         raise ValidationError({"stage": "Этап должен относиться к этому проекту."})
     if stage.status in CLOSED_STAGE_STATUSES and (instance is None or "stage" in data):
         raise ValidationError({"stage": "Этап на приёмке, принят или отменён — задачи в нём не добавляются."})
+    if stage.status == Stage.Status.COMPLETED and (instance is None or "stage" in data and data["stage"] != instance.stage):
+        raise ValidationError({"stage": "Этап отмечен как выполненный. Верните его в работу, чтобы добавить задачу."})
     assignee = data.get("assignee", instance.assignee if instance else None)
     assignee_changed = instance is None or ("assignee" in data and data["assignee"] != instance.assignee)
     if assignee is None or assignee.project_id != project.pk or assignee.role != ProjectMember.Role.EXECUTOR or (assignee_changed and not assignee.is_active):
