@@ -1,5 +1,5 @@
 from django.urls import path
-from . import expense_views as expenses, finance_views as finance, price_views as prices, report_views as reports, views, work_views as work
+from . import completion_views as completion, expense_views as expenses, finance_views as finance, price_views as prices, report_views as reports, views, work_views as work
 
 app_name = "workspace"
 urlpatterns = [
@@ -16,6 +16,7 @@ urlpatterns = [
     path("invitations/<str:token>/", views.accept, name="accept"),
     path("projects/<int:project_id>/history/", views.history, name="history"),
     path("projects/<int:project_id>/", work.project_detail, name="project"),
+    path("projects/<int:project_id>/complete/", completion.complete_project, name="project-complete"),
     path("projects/<int:project_id>/edit/", work.project_edit, name="project-edit"),
     path("projects/<int:project_id>/delete/", work.project_delete, name="project-delete"),
     path("projects/<int:project_id>/archive/", work.project_archive, name="project-archive"),
