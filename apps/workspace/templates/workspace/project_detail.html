@@ -45,6 +45,11 @@
 <small>{{ percent }}% · задач выполнено {{ stage.task_done }} из {{ stage.task_total }}</small>
 </div>{% empty %}<div class="empty-state compact"><h3>Этапов пока нет</h3><p>Добавьте этапы, чтобы видеть прогресс.</p></div>{% endfor %}</section>
 </div>
+{% if is_customer and project.status == 'in_progress' %}<section class="card">
+<div class="card__head"><div><span class="eyebrow">Завершение проекта · FR18</span><h2>Завершить ремонт</h2></div></div>
+<p class="muted-text">Действие доступно, когда все этапы приняты заказчиком и все замечания закрыты. Отменённые этапы не блокируют завершение.</p>
+<form method="post" action="{% url 'workspace:project-complete' project.pk %}" data-confirm="Завершить проект «{{ project.name }}»? После этого изменить его нельзя.">{% csrf_token %}<button class="button button--primary" type="submit">Завершить проект</button></form>
+</section>{% endif %}
 {% if is_owner %}<section class="card danger-zone" id="danger">
 <div class="danger-zone__part">
 <h2>Удалить проект</h2>
