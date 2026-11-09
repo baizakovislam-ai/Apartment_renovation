@@ -18,6 +18,11 @@ def list_context(items, params):
     """Filtered items plus what the search bar and category tabs need."""
     all_items = list(items)
     filtered = list(price_services.filter_items(items, params))
+    averages = price_services.average_prices_for(filtered)
+    for item in filtered:
+        average = averages.get(price_services.price_key(item.name, item.unit, item.category))
+        item.average_price = average["average_price"] if average else None
+        item.average_foremen_count = average["foremen_count"] if average else 0
     filters = {"q": (params.get("q") or "").strip(), "category": params.get("category") or ""}
     return {"items": filtered, "total_count": len(all_items), "category_tabs": price_services.category_counts(all_items),
             "filters": filters, "has_filters": any(filters.values()), "categories": WorkCategory.choices}
