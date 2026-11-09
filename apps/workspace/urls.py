@@ -1,10 +1,14 @@
 from django.urls import path
-from . import expense_views as expenses, finance_views as finance, price_views as prices, report_views as reports, views, work_views as work
+from . import notification_views as notifications, expense_views as expenses, finance_views as finance, price_views as prices, report_views as reports, views, work_views as work
 
 app_name = "workspace"
 urlpatterns = [
     path("", views.dashboard, name="dashboard"),
     path("projects/", views.project_list, name="projects"),
+    path("notifications/", notifications.notification_list, name="notifications"),
+    path("notifications/<int:notification_id>/", notifications.notification_open, name="notification-open"),
+    path("notifications/read-all/", notifications.notification_read_all, name="notifications-read-all"),
+    path("notifications/settings/", notifications.notification_settings, name="notification-settings"),
     path("projects/new/", views.project_create, name="project-create"),
     path("projects/<int:project_id>/stages/", views.stage_list, name="stages"),
     path("projects/<int:project_id>/stages/new/", views.stage_form, name="stage-create"),

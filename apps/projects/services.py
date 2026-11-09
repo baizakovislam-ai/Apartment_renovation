@@ -299,7 +299,8 @@ def hand_over_work(project, actor, member, replacement, work):
         task.save(update_fields=["assignee", "status", "version", "updated_at"])
         record_event(project, actor, "task.updated", task_id=task.pk, name=task.name,
                      before={"assignee": member.user.get_full_name() or member.user.email},
-                     after={"assignee": replacement.user.get_full_name() or replacement.user.email})
+                     after={"assignee": replacement.user.get_full_name() or replacement.user.email},
+                     old_assignee_id=member.user_id, assignee_id=replacement.user_id)
     for stage in work["stages"]:
         stage.responsible = replacement
         stage.save(update_fields=["responsible", "updated_at"])
