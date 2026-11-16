@@ -18,7 +18,6 @@ from django.template.loader import render_to_string
 from django.utils import timezone
 from django.utils.formats import date_format
 
-from apps.projects.emails import local_only
 from apps.projects.models import ProjectMember
 from .models import Notification, NotificationSettings
 from .rules import CUSTOMER, EXECUTOR, FOREMAN, Note, members, notes_for, url
@@ -85,6 +84,12 @@ def is_deliverable(email):
 def wants_email(user):
     prefs = NotificationSettings.objects.filter(user=user).first()
     return (prefs is None or prefs.email_enabled) and bool(user.email) and user.is_active and is_deliverable(user.email)
+
+
+def local_only(site):
+    """The site was started only for this computer (start.bat): such a link opens only here, not on a phone."""
+    host = site.split("//", 1)[-1].split("/", 1)[0].rsplit(":", 1)[0].strip("[]").lower()
+    return host in {"127.0.0.1", "localhost", "::1", "0.0.0.0"}
 
 
 EMAIL_TONES = {  # the same colours as the notification icons on the site
