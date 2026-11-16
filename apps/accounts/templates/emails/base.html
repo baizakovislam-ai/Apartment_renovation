@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<meta name="supported-color-schemes" content="light">
+<title>Контроль ремонта</title>
+</head>
+<body style="margin:0;padding:0;background-color:#eef2f8;-webkit-text-size-adjust:100%;">
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:#eef2f8;">{% block preheader %}{% endblock %}</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#eef2f8;">
+  <tr>
+    <td align="center" style="padding:32px 16px;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:520px;background-color:#ffffff;border:1px solid #dbe3f0;border-radius:14px;overflow:hidden;font-family:Inter,'Segoe UI',Roboto,Arial,Helvetica,sans-serif;">
+        <tr>
+          <td style="background-color:#12264a;background-image:linear-gradient(150deg,#0b1528,#12264a 55%,#1d4ed8);padding:22px 28px;">
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+              <tr>
+                <td width="30" height="30" align="center" valign="middle" style="width:30px;height:30px;background-color:#2563eb;border-radius:8px;color:#ffffff;font-size:15px;font-weight:700;line-height:30px;">&#8801;</td>
+                <td style="padding-left:12px;color:#ffffff;font-size:16px;font-weight:700;letter-spacing:-0.01em;">Контроль ремонта</td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:32px 28px 8px 28px;">
+            <p style="margin:0 0 6px 0;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#2563eb;">{% block eyebrow %}{% endblock %}</p>
+            <h1 style="margin:0 0 14px 0;font-size:24px;line-height:1.25;font-weight:800;color:#0f172a;">{% block heading %}{% endblock %}</h1>
+            {% block content %}{% endblock %}
+          </td>
+        </tr>
+        {% block note_row %}
+        <tr>
+          <td style="padding:22px 28px 28px 28px;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+              <tr>
+                <td style="background-color:#f8fafc;border:1px solid #eef1f7;border-radius:10px;padding:14px 16px;font-size:13px;line-height:1.55;color:#64748b;">{% block note %}{% endblock %}</td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        {% endblock %}
+        <tr>
+          <td style="border-top:1px solid #eef1f7;padding:18px 28px;font-size:12px;line-height:1.6;color:#94a3b8;">
+            Контроль ремонта — весь проект в одном пространстве.<br>
+            {% block footer %}Это автоматическое письмо, отвечать на него не нужно.{% endblock %}
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
+</body>
+</html>

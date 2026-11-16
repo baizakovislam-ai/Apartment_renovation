@@ -68,7 +68,7 @@ class VerificationSchemaRegressionTests(TransactionTestCase):
                 cursor.execute(f'SELECT COUNT(*) FROM "{archive}"')
                 self.assertEqual(cursor.fetchone()[0], 1)
             another = User.objects.create_user(email="new-code@example.com", full_name="New")
-            with patch("apps.accounts.services.send_mail", return_value=1):
+            with patch("apps.accounts.services.send_html_email", return_value=1):
                 self.assertTrue(send_verification_email(another))
             self.assertTrue(EmailVerificationCode.objects.filter(user=another).exists())
             self.assertTrue(User.objects.filter(pk=user.pk).exists())

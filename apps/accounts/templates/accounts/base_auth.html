@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block title %}Вход{% endblock %} — Контроль ремонта</title>
 <link rel="icon" href="{% static 'workspace/renovation-icon.svg' %}">
-<link rel="stylesheet" href="{% static 'workspace/ui.css' %}?v=80">
+<link rel="stylesheet" href="{% static 'workspace/ui.css' %}?v=88">
+<script src="{% static 'workspace/password-toggle.js' %}?v=1" defer></script>
 </head>
 <body class="auth-page">
 <div class="auth-stage">
@@ -21,7 +22,7 @@
 </div>
 <div class="auth-footnote">От первого этапа до результата.<br>Работайте вместе и сохраняйте историю решений.</div>
 </aside>
-<main class="auth-card">{% if messages %}{% for message in messages %}<div class="alert ok" role="status">{{ message }}</div>{% endfor %}{% endif %}{% block content %}{% endblock %}</main>
+<main class="auth-card">{% if messages %}{% for message in messages %}<div class="alert{% if message.tags != 'error' %} ok{% endif %}" role="status">{{ message }}</div>{% endfor %}{% endif %}{% block content %}{% endblock %}</main>
 </div>
 </body>
 </html>
