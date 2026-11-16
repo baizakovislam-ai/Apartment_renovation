@@ -137,3 +137,34 @@ def signed_money(value):
         return "—"
     text = money(abs(value))
     return f"+{text}" if value > 0 else (f"−{text}" if value < 0 else text)
+
+
+NOTIFY_ICONS = {"task": "tasks", "remark": "flag", "approval": "stamp", "deadline": "clock", "overdue": "alert", "project": "projects"}
+
+
+@register.simple_tag
+def notify_icon(kind, size=18):
+    """Icon of a notification kind (FR19): the same pictures on the page, in the bell and in the menu."""
+    return icon(NOTIFY_ICONS.get(kind, "bell"), size)
+
+
+@register.filter
+def ago(value):
+    """«только что», «5 мин назад», «3 ч назад», «вчера в 14:05», «12 ноября в 09:30»."""
+    from django.utils import timezone
+    from django.utils.formats import date_format
+    if not value:
+        return ""
+    now = timezone.localtime()
+    value = timezone.localtime(value)
+    seconds = (now - value).total_seconds()
+    if seconds < 60:
+        return "только что"
+    if seconds < 3600:
+        return f"{int(seconds // 60)} мин назад"
+    days = (now.date() - value.date()).days
+    if days == 0:
+        return f"{int(seconds // 3600)} ч назад"
+    if days == 1:
+        return f"вчера в {value:%H:%M}"
+    return f"{date_format(value, 'j E' if value.year == now.year else 'j E Y')} в {value:%H:%M}"

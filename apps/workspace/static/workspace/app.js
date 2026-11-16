@@ -114,3 +114,69 @@ document.querySelectorAll("[data-share]").forEach(bar => {
     } finally { button.disabled = false; }
   }));
 });
+// Колокольчик уведомлений (FR19): по клику — список последних уведомлений, число непрочитанных
+// обновляется раз в минуту без перезагрузки страницы. Без JavaScript колокольчик — обычная ссылка.
+document.querySelectorAll("[data-bell]").forEach(bell => {
+  const button = bell.querySelector("[data-bell-button]");
+  const panel = bell.querySelector("[data-bell-panel]");
+  const badge = bell.querySelector("[data-bell-count]");
+  const navBadge = document.querySelector("[data-nav-unread]");
+  const baseTitle = document.title.replace(/^\(\d+\+?\) /, "");
+  let unread = Number(badge?.hidden ? 0 : parseInt(badge?.textContent, 10) || 0);
+  const showCount = count => {
+    const grew = count > unread;
+    unread = count;
+    const text = count > 99 ? "99+" : String(count);
+    if (badge) { badge.textContent = text; badge.hidden = !count; }
+    if (navBadge) { navBadge.textContent = text; navBadge.hidden = !count; }
+    button.setAttribute("aria-label", count ? `Уведомления: непрочитанных ${count}` : "Уведомления");
+    document.title = count ? `(${text}) ${baseTitle}` : baseTitle;
+    if (grew) { button.classList.remove("header-bell--ring"); void button.offsetWidth; button.classList.add("header-bell--ring"); }
+  };
+  const load = async () => {
+    panel.innerHTML = '<div class="bell-panel__empty"><p>Загрузка…</p></div>';
+    try {
+      const url = `${bell.dataset.panelUrl}?next=${encodeURIComponent(location.pathname + location.search)}`;
+      const response = await fetch(url, { credentials: "same-origin", headers: { "X-Requested-With": "fetch" } });
+      if (!response.ok) throw new Error(response.status);
+      panel.innerHTML = await response.text();
+      const list = panel.querySelector("[data-unread]");
+      if (list) showCount(Number(list.dataset.unread));
+    } catch { location.href = button.href; }
+  };
+  const setOpen = open => {
+    panel.hidden = !open;
+    button.setAttribute("aria-expanded", String(open));
+    bell.classList.toggle("bell--open", open);
+    if (open) load();
+  };
+  button.addEventListener("click", event => {
+    if (event.ctrlKey || event.metaKey || event.shiftKey) return;  // открыть страницу в новой вкладке
+    event.preventDefault();
+    setOpen(panel.hidden);
+  });
+  document.addEventListener("click", event => { if (!panel.hidden && !bell.contains(event.target)) setOpen(false); });
+  document.addEventListener("keydown", event => { if (event.key === "Escape" && !panel.hidden) { setOpen(false); button.focus(); } });
+  panel.addEventListener("submit", async event => {
+    const form = event.target.closest("[data-bell-read-all]");
+    if (!form) return;
+    event.preventDefault();
+    try {
+      const response = await fetch(form.action, { method: "POST", body: new FormData(form), credentials: "same-origin", headers: { "X-Requested-With": "fetch" } });
+      if (!response.ok) throw new Error(response.status);
+      // На странице «Уведомления» перезагружаем её, чтобы список тоже стал прочитанным.
+      if (location.pathname.startsWith(button.getAttribute("href"))) { location.reload(); return; }
+      showCount(0);
+      load();
+    } catch { form.submit(); }
+  });
+  const refresh = async () => {
+    if (document.hidden) return;
+    try {
+      const response = await fetch(bell.dataset.countUrl, { credentials: "same-origin" });
+      if (response.ok) showCount((await response.json()).unread);
+    } catch { /* сеть пропала — попробуем через минуту */ }
+  };
+  setInterval(refresh, 60000);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) refresh(); });
+});
