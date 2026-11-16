@@ -2,7 +2,7 @@
 <div>
 <span class="eyebrow">{% if own or not_foreman %}Рабочее пространство{% else %}Деньги и согласования{% endif %}</span>
 <h1>{% if own or not_foreman %}Мой прайс-лист{% else %}Прайс-лист прораба{% endif %}</h1>
-<p>{% if not_foreman %}Список работ прораба с ценами за единицу.{% elif own %}Ваши работы и цены за единицу. Их можно подставлять в предварительный расчёт в проектах, где вы прораб. Изменение цены не меняет уже сделанные расчёты и утверждённые сметы.{% elif foreman %}Цены прораба {{ foreman|display_name }}. Работу из этого списка можно добавить в предварительный расчёт — цена подставится сама.{% else %}В проекте пока нет прораба — прайс-лист появится, когда он присоединится.{% endif %}</p>
+<p>{% if not_foreman %}Список работ прораба с ценами за единицу.{% elif own %}Ваши работы и цены за единицу. Их можно подставлять в предварительный расчёт в проектах, где вы прораб. Изменение цены не меняет уже сделанные расчёты и утверждённые сметы.{% elif foreman %}Цены прораба {{ foreman|display_name }}. Работу из этого списка можно добавить в предварительный расчёт — цена подставится сама.{% else %}В проекте пока нет прораба — прайс-лист появится, когда он присоединится.{% endif %}{% if not not_foreman %} Средняя цена считается по прайс-листам действующих прорабов для той же работы, категории и единицы измерения.{% endif %}</p>
 </div>
 {% if is_own_list %}<a class="button button--secondary" href="{% url 'workspace:price-list' %}">{% icon 'edit' %} Редактировать мой прайс-лист</a>
 {% elif not own and not not_foreman %}<a class="button button--secondary" href="{% url 'workspace:calculations' project.pk %}">{% icon 'calc' %} К предварительному расчёту</a>{% endif %}
@@ -25,12 +25,13 @@
 <section class="card">
 <div class="card__head"><div><span class="eyebrow">Позиции</span><h2>Работы и цены</h2></div><span class="counter">{{ items|length }}</span></div>
 {% if items %}<div class="table-wrap"><table class="data-table">
-<thead><tr><th>Работа</th><th>Категория</th><th>Ед.</th><th class="num">Цена за ед.</th><th>Обновлена</th>{% if own %}<th></th>{% endif %}</tr></thead>
+<thead><tr><th>Работа</th><th>Категория</th><th>Ед.</th><th class="num">Цена прораба</th><th class="num">Средняя цена</th><th>Обновлена</th>{% if own %}<th></th>{% endif %}</tr></thead>
 <tbody>{% for item in items %}<tr>
 <td><strong>{% if filters.q %}{{ item.name|highlight:filters.q }}{% else %}{{ item.name }}{% endif %}</strong></td>
 <td><span class="badge">{{ item.get_category_display }}</span></td>
 <td>{{ item.unit }}</td>
 <td class="num"><strong>{{ item.price|money }}</strong></td>
+<td class="num">{% if item.average_price %}<strong>{{ item.average_price|money }}</strong><small class="muted-text"> · {{ item.average_foremen_count }} прорабов</small>{% else %}<span class="muted-text">Пока нет цен</span>{% endif %}</td>
 <td><small class="muted-text">{{ item.updated_at|date:'d.m.Y' }}</small></td>
 {% if own %}<td><div class="row-actions"><a class="button button--ghost button--sm" href="{% url 'workspace:price-item-edit' item.pk %}" aria-label="Изменить {{ item.name }}">{% icon 'edit' 16 %}</a>
 <form method="post" action="{% url 'workspace:price-item-delete' item.pk %}" data-confirm="Удалить «{{ item.name }}» из прайс-листа? Сделанные расчёты не изменятся.">{% csrf_token %}<button class="button button--ghost button--sm" type="submit" aria-label="Удалить {{ item.name }}">{% icon 'trash' 16 %}</button></form></div></td>{% endif %}

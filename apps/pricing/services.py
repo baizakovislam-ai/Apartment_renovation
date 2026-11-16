@@ -8,6 +8,8 @@ Who does what:
                            so a later change of the price list never changes saved calculations or estimates (UC-22).
 The executor has no access to prices at all (ТЗ 4.1.1, прил. А).
 """
+from decimal import Decimal, ROUND_HALF_UP
+
 from django.db import transaction
 from django.db.models.functions import Lower
 from rest_framework.exceptions import PermissionDenied, ValidationError
@@ -60,6 +62,49 @@ def category_counts(items):
     for item in items:
         counts[item.category] = counts.get(item.category, 0) + 1
     return [(value, label, counts[value]) for value, label in WorkCategory.choices if value in counts]
+
+
+def price_key(name, unit, category):
+    return (" ".join(name.split()).casefold(), " ".join(unit.split()).casefold(), category)
+
+
+def _average_prices(requested):
+    if not requested:
+        return {}
+
+    categories = {key[2] for key in requested}
+    active_foremen = ProjectMember.objects.filter(
+        role=ProjectMember.Role.FOREMAN, is_active=True
+    ).values_list("user_id", flat=True).distinct()
+    prices = PriceItem.objects.filter(foreman_id__in=active_foremen, category__in=categories).only(
+        "foreman_id", "name", "unit", "category", "price"
+    )
+
+    totals = {}
+    for item in prices:
+        key = price_key(item.name, item.unit, item.category)
+        if key not in requested:
+            continue
+        total, foremen = totals.setdefault(key, (Decimal("0"), set()))
+        if item.foreman_id not in foremen:
+            totals[key] = (total + item.price, foremen | {item.foreman_id})
+
+    result = {}
+    for key, (total, foremen) in totals.items():
+        average = (total / len(foremen)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        result[key] = {"average_price": average, "foremen_count": len(foremen)}
+    return result
+
+
+def average_prices_for(items):
+    """Return an arithmetic mean per work/unit/category across active foremen's price lists."""
+    return _average_prices({price_key(item.name, item.unit, item.category) for item in items})
+
+
+def average_price_for(*, name, unit, category):
+    """Calculate the mean for one selected work, using the same identity as price list rows."""
+    key = price_key(name, unit, category)
+    return _average_prices({key}).get(key, {"average_price": None, "foremen_count": 0})
 
 
 # ---------- changing ----------

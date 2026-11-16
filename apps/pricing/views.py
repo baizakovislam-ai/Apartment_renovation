@@ -9,7 +9,7 @@ from apps.estimates.serializers import CalculationItemSerializer
 from apps.estimates.views import finance_object, finance_project
 from . import services
 from .models import PriceItem
-from .serializers import AddToCalculationSerializer, PriceItemSerializer
+from .serializers import AveragePriceQuerySerializer, AddToCalculationSerializer, PriceItemSerializer
 
 
 def item_data(request):
@@ -54,6 +54,19 @@ class ProjectPriceListView(APIView):
         project = finance_project(request, project_id)
         items = services.filter_items(services.project_price_list(project), request.query_params)
         return Response(PriceItemSerializer(items, many=True).data)
+
+
+class ProjectAveragePriceView(APIView):
+    """Return the cross-foreman average for one work in an accessible project."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, project_id):
+        finance_project(request, project_id)
+        serializer = AveragePriceQuerySerializer(data=request.query_params)
+        serializer.is_valid(raise_exception=True)
+        work = serializer.validated_data
+        average = services.average_price_for(**work)
+        return Response({**work, **average})
 
 
 class CalculationFromPriceListView(APIView):
