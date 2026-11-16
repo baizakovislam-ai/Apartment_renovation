@@ -1,0 +1,9 @@
+{% extends "emails/base.html" %}
+{% block preheader %}Код подтверждения email: {{ code }}. Действует {{ expiry_minutes }} минут.{% endblock %}
+{% block eyebrow %}Регистрация{% endblock %}
+{% block heading %}Подтвердите email{% endblock %}
+{% block content %}
+<p style="margin:0 0 22px 0;font-size:15px;line-height:1.6;color:#33415e;">Здравствуйте, {{ user.get_short_name }}!<br>Спасибо за регистрацию. Чтобы завершить её, введите этот код на странице подтверждения:</p>
+{% include "emails/_code.html" %}
+{% endblock %}
+{% block note %}<strong style="color:#33415e;">Не регистрировались?</strong> Просто проигнорируйте это письмо — без кода аккаунт не будет активирован.{% endblock %}

@@ -2,12 +2,12 @@ from datetime import timedelta
 import secrets
 
 from django.conf import settings
-from django.core.mail import send_mail
 from django.db import transaction
 from django.template.loader import render_to_string
 from django.utils.crypto import constant_time_compare, salted_hmac
 from django.utils import timezone
 
+from .mailing import send_html_email
 from .models import EmailVerificationCode, LoginAttempt, PasswordResetCode
 
 
@@ -27,12 +27,9 @@ def send_verification_email(user) -> bool:
         return False
 
     code = f"{secrets.randbelow(1_000_000):06d}"
-    body = render_to_string(
-        "accounts/emails/verify_email.txt",
-        {"user": user, "code": code, "expiry_minutes": settings.EMAIL_VERIFICATION_CODE_TTL // 60},
-    )
+    context = {"user": user, "code": code, "expiry_minutes": settings.EMAIL_VERIFICATION_CODE_TTL // 60}
     subject = render_to_string("accounts/emails/verify_subject.txt").strip()
-    send_mail(subject, body, None, [user.email])
+    send_html_email(subject, "accounts/emails/verify_email.html", context, [user.email])
     EmailVerificationCode.objects.update_or_create(
         user=user,
         defaults={"code_hash": _verification_code_hash(user, code), "attempts": 0},
@@ -78,12 +75,9 @@ def send_password_reset_code(user) -> bool:
         return False
 
     code = f"{secrets.randbelow(1_000_000):06d}"
-    body = render_to_string(
-        "accounts/emails/password_reset_email.txt",
-        {"user": user, "code": code, "expiry_minutes": settings.PASSWORD_RESET_CODE_TTL // 60},
-    )
+    context = {"user": user, "code": code, "expiry_minutes": settings.PASSWORD_RESET_CODE_TTL // 60}
     subject = render_to_string("accounts/emails/password_reset_subject.txt").strip()
-    send_mail(subject, body, None, [user.email])
+    send_html_email(subject, "accounts/emails/password_reset_email.html", context, [user.email])
     PasswordResetCode.objects.update_or_create(
         user=user,
         defaults={"code_hash": _password_reset_code_hash(user, code), "attempts": 0},
@@ -91,25 +85,49 @@ def send_password_reset_code(user) -> bool:
     return True
 
 
-@transaction.atomic
-def reset_password_with_code(user, code: str, new_password: str) -> bool:
-    reset_code = PasswordResetCode.objects.select_for_update().filter(user=user).first()
+def _active_reset_code(user, lock=False):
+    """Действующий (не истёкший и не исчерпавший попытки) код сброса пароля или None."""
+    qs = PasswordResetCode.objects.filter(user=user)
+    if lock:
+        qs = qs.select_for_update()
+    reset_code = qs.first()
     if not reset_code or reset_code.attempts >= settings.PASSWORD_RESET_CODE_MAX_ATTEMPTS:
-        return False
-
+        return None
     expiry = timedelta(seconds=settings.PASSWORD_RESET_CODE_TTL)
     if reset_code.created_at + expiry <= timezone.now():
-        return False
+        return None
+    return reset_code
 
+
+@transaction.atomic
+def verify_password_reset_code(user, code: str):
+    """Шаг 2: проверить код. Возвращает id кода при успехе (код пока не удаляется), иначе None."""
+    reset_code = _active_reset_code(user, lock=True)
+    if not reset_code:
+        return None
     if not constant_time_compare(reset_code.code_hash, _password_reset_code_hash(user, code)):
         reset_code.attempts += 1
         reset_code.save(update_fields=["attempts"])
-        return False
+        return None
+    return reset_code.pk
 
+
+@transaction.atomic
+def set_password_with_verified_code(user, code_id, new_password: str) -> bool:
+    """Шаг 3: сменить пароль, если подтверждённый код всё ещё действует. Код одноразовый — удаляется."""
+    reset_code = _active_reset_code(user, lock=True)
+    if not reset_code or reset_code.pk != code_id:
+        return False
     user.set_password(new_password)
     user.save(update_fields=["password"])
     reset_code.delete()
     return True
+
+
+def reset_password_with_code(user, code: str, new_password: str) -> bool:
+    """Проверка кода и смена пароля за один вызов."""
+    code_id = verify_password_reset_code(user, code)
+    return bool(code_id) and set_password_with_verified_code(user, code_id, new_password)
 
 
 def client_ip(request):

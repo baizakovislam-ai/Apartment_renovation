@@ -1,0 +1,5 @@
+<ol class="reset-steps" aria-label="Шаги восстановления пароля">
+  <li class="{% if step == 1 %}is-current{% elif step > 1 %}is-done{% endif %}"><span>1</span>Email</li>
+  <li class="{% if step == 2 %}is-current{% elif step > 2 %}is-done{% endif %}"><span>2</span>Код</li>
+  <li class="{% if step == 3 %}is-current{% endif %}"><span>3</span>Новый пароль</li>
+</ol>

@@ -6,11 +6,13 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.shortcuts import redirect, render
 from django.urls import reverse_lazy
+from django.views import View
 from django.views.generic import FormView
 
 from .forms import (
     LoginForm,
     PasswordResetCodeForm,
+    PasswordResetNewPasswordForm,
     PasswordResetRequestForm,
     RegisterForm,
     ResendVerificationForm,
@@ -18,10 +20,11 @@ from .forms import (
 )
 from .models import User
 from .services import (
-    reset_password_with_code,
     send_password_reset_code,
+    set_password_with_verified_code,
     send_verification_email,
     verify_email_code,
+    verify_password_reset_code,
 )
 
 logger = logging.getLogger(__name__)
@@ -121,50 +124,107 @@ def profile(request):
     return render(request, "accounts/profile.html", context(request, page="profile"))
 
 
-# ---- Восстановление пароля (встроенные представления Django) ----
+# ---- Восстановление пароля: email → код → новый пароль ----
+RESET_EMAIL_KEY = "password_reset_email"
+RESET_VERIFIED_KEY = "password_reset_verified"
+
+
+def _reset_user(email):
+    user = User.objects.filter(email__iexact=(email or "").strip(), is_active=True).first()
+    return user if user and user.has_usable_password() else None
+
+
+def _send_reset_code(user):
+    if not user:
+        return
+    try:
+        send_password_reset_code(user)
+    except (smtplib.SMTPException, OSError):
+        logger.exception("Password reset email delivery failed for user id %s", user.pk)
+
+
 class PasswordResetView(FormView):
+    """Шаг 1: email. Ответ одинаковый для любых адресов — так нельзя узнать, кто зарегистрирован."""
     template_name = "accounts/password_reset_form.html"
     form_class = PasswordResetRequestForm
-    success_url = reverse_lazy("accounts:password_reset_done")
+    success_url = reverse_lazy("accounts:password_reset_confirm")
+
+    def get_initial(self):
+        return {**super().get_initial(), "email": self.request.session.get(RESET_EMAIL_KEY, "")}
 
     def form_valid(self, form):
-        user = User.objects.filter(
-            email__iexact=form.cleaned_data["email"].strip(),
-            is_active=True,
-        ).first()
-        if user and user.has_usable_password():
-            try:
-                send_password_reset_code(user)
-            except (smtplib.SMTPException, OSError):
-                logger.exception("Password reset email delivery failed for user id %s", user.pk)
+        email = form.cleaned_data["email"].strip().lower()
+        self.request.session[RESET_EMAIL_KEY] = email
+        self.request.session.pop(RESET_VERIFIED_KEY, None)
+        _send_reset_code(_reset_user(email))
         return super().form_valid(form)
 
 
-class PasswordResetDoneView(auth_views.PasswordResetDoneView):
-    template_name = "accounts/password_reset_done.html"
+class PasswordResetDoneView(View):
+    """Старый адрес «письмо отправлено» — теперь сразу ведёт на ввод кода."""
+    def get(self, request):
+        return redirect("accounts:password_reset_confirm")
 
 
 class PasswordResetConfirmView(FormView):
+    """Шаг 2: только код из письма."""
     form_class = PasswordResetCodeForm
     template_name = "accounts/password_reset_confirm.html"
-    success_url = reverse_lazy("accounts:password_reset_complete")
+    success_url = reverse_lazy("accounts:password_reset_new")
+
+    def dispatch(self, request, *args, **kwargs):
+        self.email = request.session.get(RESET_EMAIL_KEY)
+        if not self.email:
+            return redirect("accounts:password_reset")
+        return super().dispatch(request, *args, **kwargs)
+
+    def post(self, request, *args, **kwargs):
+        if "resend" in request.POST:
+            _send_reset_code(_reset_user(self.email))
+            messages.success(request, "Если адрес зарегистрирован, мы отправили новый код. Повторно запросить можно через минуту.")
+            return redirect("accounts:password_reset_confirm")
+        return super().post(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        return {**super().get_context_data(**kwargs), "email": self.email}
 
     def form_valid(self, form):
-        user = User.objects.filter(
-            email__iexact=form.cleaned_data["email"].strip(),
-            is_active=True,
-        ).first()
-        if (
-            not user
-            or not user.has_usable_password()
-            or not reset_password_with_code(
-                user,
-                form.cleaned_data["code"],
-                form.cleaned_data["new_password1"],
-            )
-        ):
-            form.add_error("code", "Код недействителен или истёк. Запросите новый код.")
+        user = _reset_user(self.email)
+        code_id = verify_password_reset_code(user, form.cleaned_data["code"]) if user else None
+        if not code_id:
+            form.add_error("code", "Неверный или истёкший код. Проверьте письмо или запросите новый код.")
             return self.form_invalid(form)
+        self.request.session[RESET_VERIFIED_KEY] = {"user": user.pk, "code": code_id}
+        return super().form_valid(form)
+
+
+class PasswordResetNewPasswordView(FormView):
+    """Шаг 3: новый пароль — доступен только после верного кода."""
+    form_class = PasswordResetNewPasswordForm
+    template_name = "accounts/password_reset_new.html"
+    success_url = reverse_lazy("accounts:password_reset_complete")
+
+    def dispatch(self, request, *args, **kwargs):
+        verified = request.session.get(RESET_VERIFIED_KEY) or {}
+        self.user = User.objects.filter(pk=verified.get("user"), is_active=True).first()
+        self.code_id = verified.get("code")
+        if not self.user or not self.code_id:
+            return redirect("accounts:password_reset_confirm" if request.session.get(RESET_EMAIL_KEY) else "accounts:password_reset")
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_form_kwargs(self):
+        return {**super().get_form_kwargs(), "user": self.user}
+
+    def get_context_data(self, **kwargs):
+        return {**super().get_context_data(**kwargs), "email": self.user.email}
+
+    def form_valid(self, form):
+        if not set_password_with_verified_code(self.user, self.code_id, form.cleaned_data["new_password1"]):
+            self.request.session.pop(RESET_VERIFIED_KEY, None)
+            messages.error(self.request, "Время действия кода истекло. Запросите новый код.")
+            return redirect("accounts:password_reset_confirm")
+        self.request.session.pop(RESET_VERIFIED_KEY, None)
+        self.request.session.pop(RESET_EMAIL_KEY, None)
         return super().form_valid(form)
 
 

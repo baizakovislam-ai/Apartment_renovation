@@ -843,3 +843,25 @@ a.attention__item:hover strong { color: var(--brand); }
 .shared-report__photos { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; margin-top: 14px; }
 .shared-report__photos img { width: 100%; height: 220px; object-fit: cover; border-radius: 12px; border: 1px solid var(--line-2); background: #eef2f8; }
 .shared-report__foot { text-align: center; color: var(--muted); font-size: 12.5px; margin-top: 16px; }
+/* ---------- Password visibility toggle ---------- */
+input::-ms-reveal, input::-ms-clear { display: none; }
+.pw-field { position: relative; display: block; width: 100%; }
+.pw-field input { width: 100%; padding-right: 44px !important; }
+.pw-toggle { position: absolute; top: 50%; right: 6px; transform: translateY(-50%); display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 8px; background: transparent; color: var(--muted); cursor: pointer; }
+.pw-toggle:hover { color: var(--brand); background: var(--brand-50); }
+.pw-toggle:focus-visible { outline: 2px solid var(--brand); outline-offset: 1px; }
+.pw-toggle[aria-pressed="true"] { color: var(--brand); }
+
+/* ---------- Password reset steps ---------- */
+.reset-steps { display: flex; gap: 6px; list-style: none; margin: 0 0 22px; padding: 0; font-size: 12.5px; font-weight: 600; color: var(--muted-2); }
+.reset-steps li { flex: 1; display: flex; align-items: center; gap: 7px; padding-bottom: 9px; border-bottom: 3px solid var(--line); white-space: nowrap; }
+.reset-steps span { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 50%; background: var(--line-2); color: var(--muted); font-size: 11.5px; }
+.reset-steps li.is-current { color: var(--brand-600); border-color: var(--brand); }
+.reset-steps li.is-current span { background: var(--brand); color: #fff; }
+.reset-steps li.is-done { color: var(--ink-2); border-color: #93b4f5; }
+.reset-steps li.is-done span { background: var(--brand-100); color: var(--brand-600); }
+.field input.code-input { text-align: center; font-size: 24px; font-weight: 700; letter-spacing: .45em; padding-left: calc(12px + .45em); font-variant-numeric: tabular-nums; }
+.inline-link-form { margin: 0; display: inline; }
+.link-button { padding: 0; border: 0; background: none; color: var(--brand); font: inherit; cursor: pointer; text-align: left; }
+.link-button:hover { text-decoration: underline; }
+.field input.code-input::placeholder { color: var(--muted-2); opacity: .45; font-weight: 600; }

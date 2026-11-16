@@ -101,17 +101,24 @@ class PasswordResetRequestForm(forms.Form):
 
 
 class PasswordResetCodeForm(forms.Form):
-    email = forms.EmailField(label="Email", widget=forms.EmailInput(attrs={"autocomplete": "email"}))
+    """Шаг 2 восстановления: только код из письма."""
     code = forms.RegexField(
         r"^\d{6}$",
         label="Код из письма",
-        error_messages={"invalid": "Введите 6-значный код из письма."},
-        widget=forms.TextInput(attrs={"autocomplete": "one-time-code", "inputmode": "numeric", "maxlength": "6"}),
+        error_messages={"invalid": "Введите 6-значный код из письма.", "required": "Введите код из письма."},
+        widget=forms.TextInput(attrs={
+            "autocomplete": "one-time-code", "inputmode": "numeric", "maxlength": "6",
+            "pattern": "[0-9]*", "autofocus": True, "placeholder": "000000", "class": "code-input",
+        }),
     )
+
+
+class PasswordResetNewPasswordForm(forms.Form):
+    """Шаг 3 восстановления: новый пароль."""
     new_password1 = forms.CharField(
         label="Новый пароль",
         strip=False,
-        widget=forms.PasswordInput(attrs={"autocomplete": "new-password"}),
+        widget=forms.PasswordInput(attrs={"autocomplete": "new-password", "autofocus": True}),
     )
     new_password2 = forms.CharField(
         label="Повторите новый пароль",
@@ -119,18 +126,20 @@ class PasswordResetCodeForm(forms.Form):
         widget=forms.PasswordInput(attrs={"autocomplete": "new-password"}),
     )
 
+    def __init__(self, *args, user=None, **kwargs):
+        self.user = user
+        super().__init__(*args, **kwargs)
+
     def clean(self):
         cleaned = super().clean()
-        email = cleaned.get("email")
         password1 = cleaned.get("new_password1")
         password2 = cleaned.get("new_password2")
         if password1 and password2:
             if password1 != password2:
                 self.add_error("new_password2", "Пароли не совпадают.")
             else:
-                user = User.objects.filter(email__iexact=email.strip()).first() if email else None
                 try:
-                    validate_password(password1, user=user)
+                    validate_password(password1, user=self.user)
                 except ValidationError as error:
                     self.add_error("new_password1", error)
         return cleaned

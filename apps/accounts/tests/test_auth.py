@@ -144,40 +144,61 @@ class AuthFlowTests(TestCase):
         mail.outbox.clear()
         # несуществующий email — тот же ответ, письмо не уходит
         r = self.client.post(reverse("accounts:password_reset"), {"email": "nobody@example.com"})
-        self.assertRedirects(r, reverse("accounts:password_reset_done"))
+        self.assertRedirects(r, reverse("accounts:password_reset_confirm"))
         self.assertEqual(len(mail.outbox), 0)
 
-        self.client.post(reverse("accounts:password_reset"), {"email": "ivan@example.com"})
+        # шаг 1: email
+        r = self.client.post(reverse("accounts:password_reset"), {"email": "ivan@example.com"})
+        self.assertRedirects(r, reverse("accounts:password_reset_confirm"))
         self.assertEqual(len(mail.outbox), 1)
         self.assertIsNone(re.search(r"https?://\S+", mail.outbox[-1].body))
         reset_code = re.search(r"\b\d{6}\b", mail.outbox[-1].body).group(0)
+
+        # шаг 3 недоступен без кода
+        self.assertRedirects(self.client.get(reverse("accounts:password_reset_new")), reverse("accounts:password_reset_confirm"))
+
+        # шаг 2: только код, email повторно вводить не нужно
+        page = self.client.get(reverse("accounts:password_reset_confirm"))
+        self.assertContains(page, "ivan@example.com")
+        self.assertNotContains(page, 'name="email"')
+        r = self.client.post(reverse("accounts:password_reset_confirm"), {"code": reset_code})
+        self.assertRedirects(r, reverse("accounts:password_reset_new"))
+
+        # шаг 3: новый пароль
         new = "Another-Pass-2468"
-        r = self.client.post(reverse("accounts:password_reset_confirm"), {
-            "email": "ivan@example.com",
-            "code": reset_code,
-            "new_password1": new,
-            "new_password2": new,
-        })
+        r = self.client.post(reverse("accounts:password_reset_new"), {"new_password1": new, "new_password2": new})
         self.assertRedirects(r, reverse("accounts:password_reset_complete"))
 
         self.assertNotIn("_auth_user_id", self.login(PASSWORD).client.session)
         self.assertRedirects(self.login(new), reverse("workspace:dashboard"), fetch_redirect_response=False)
 
+    def test_password_reset_steps_require_previous_step(self):
+        self.assertRedirects(self.client.get(reverse("accounts:password_reset_confirm")), reverse("accounts:password_reset"))
+        self.assertRedirects(self.client.get(reverse("accounts:password_reset_new")), reverse("accounts:password_reset"))
+
     def test_password_reset_code_is_one_time_and_limited(self):
         self.register(); self.verify()
         self.client.post(reverse("accounts:password_reset"), {"email": "ivan@example.com"})
         code = re.search(r"\b\d{6}\b", mail.outbox[-1].body).group(0)
-        new = "Another-Pass-2468"
         wrong_code = "000000" if code != "000000" else "000001"
         for _ in range(5):
-            response = self.client.post(reverse("accounts:password_reset_confirm"), {
-                "email": "ivan@example.com",
-                "code": wrong_code,
-                "new_password1": new,
-                "new_password2": new,
-            })
-        self.assertContains(response, "Код недействителен")
-        self.assertFalse(User.objects.get().check_password(new))
+            response = self.client.post(reverse("accounts:password_reset_confirm"), {"code": wrong_code})
+        self.assertContains(response, "Неверный или истёкший код")
+        # после 5 ошибок даже верный код не принимается
+        response = self.client.post(reverse("accounts:password_reset_confirm"), {"code": code})
+        self.assertContains(response, "Неверный или истёкший код")
+        self.assertRedirects(self.client.get(reverse("accounts:password_reset_new")), reverse("accounts:password_reset_confirm"))
+
+    def test_password_reset_code_cannot_be_reused(self):
+        self.register(); self.verify()
+        self.client.post(reverse("accounts:password_reset"), {"email": "ivan@example.com"})
+        code = re.search(r"\b\d{6}\b", mail.outbox[-1].body).group(0)
+        new = "Another-Pass-2468"
+        self.client.post(reverse("accounts:password_reset_confirm"), {"code": code})
+        self.client.post(reverse("accounts:password_reset_new"), {"new_password1": new, "new_password2": new})
+        self.assertTrue(User.objects.get().check_password(new))
+        # сессия очищена — повторно открыть шаг 3 нельзя
+        self.assertRedirects(self.client.get(reverse("accounts:password_reset_new")), reverse("accounts:password_reset"))
 
     @override_settings(PASSWORD_RESET_CODE_TTL=0)
     def test_expired_password_reset_code_is_rejected(self):
@@ -185,11 +206,6 @@ class AuthFlowTests(TestCase):
         self.client.post(reverse("accounts:password_reset"), {"email": "ivan@example.com"})
         code = re.search(r"\b\d{6}\b", mail.outbox[-1].body).group(0)
         new = "Another-Pass-2468"
-        response = self.client.post(reverse("accounts:password_reset_confirm"), {
-            "email": "ivan@example.com",
-            "code": code,
-            "new_password1": new,
-            "new_password2": new,
-        })
-        self.assertContains(response, "Код недействителен")
+        response = self.client.post(reverse("accounts:password_reset_confirm"), {"code": code})
+        self.assertContains(response, "Неверный или истёкший код")
         self.assertFalse(User.objects.get().check_password(new))
