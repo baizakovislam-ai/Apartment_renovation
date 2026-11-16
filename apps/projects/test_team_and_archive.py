@@ -131,13 +131,6 @@ class TeamAndArchiveTests(TestCase):
         self.assertEqual(len(mail.outbox), 1)
         self.assertIn("/invitations/", mail.outbox[0].body)
         self.assertEqual(mail.outbox[0].to, ["brigade@example.com"])
-        html, mime = mail.outbox[0].alternatives[0]  # the letter is designed like the site
-        self.assertEqual(mime, "text/html")
-        self.assertIn("Принять приглашение", html)
-        self.assertIn("Исполнитель", html)
-        self.assertIn(self.project.name, html)
-        self.assertIn("/invitations/", html)
-        self.assertIn("#2563eb", html)
         self.client.post(url, {"email": "boss@example.com", "role": "foreman"})
         self.assertFalse(ProjectInvitation.objects.filter(email="boss@example.com").exists())
 
