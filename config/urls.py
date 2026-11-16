@@ -16,6 +16,7 @@ urlpatterns = [
     path("api/", include("apps.finances.urls")),
     path("api/", include("apps.pricing.urls")),
     path("api/", include("apps.reports.urls")),
+    path("api/", include("apps.communications.urls")),
     path("files/photos/<int:pk>/", photo_file, name="photo-file"),
     path("share/reports/<str:token>/", shared_report, name="shared-report"),
     path("share/reports/<str:token>/photos/<int:pk>/", shared_photo, name="shared-photo"),

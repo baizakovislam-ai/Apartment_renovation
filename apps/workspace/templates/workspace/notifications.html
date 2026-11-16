@@ -1,0 +1,36 @@
+{% extends 'workspace/base.html' %}{% load workspace_ui %}{% block title %}Уведомления{% endblock %}{% block content %}<div class="page-title">
+<div>
+<span class="eyebrow">Ничего не пропустить</span>
+<h1>Уведомления</h1>
+<p>Назначения и изменения задач, замечания, согласования, приближение сроков и просрочки по всем вашим проектам.{% if email_enabled %} Копия каждого уведомления приходит на {{ user.email }}.{% endif %}</p>
+</div>
+<div class="page-actions">{% if unread_total %}<form method="post" action="{% url 'workspace:notifications-read-all' %}">{% csrf_token %}<button class="button button--ghost" type="submit">{% icon 'check' %} Прочитать все</button></form>{% endif %}</div>
+</div>
+<form class="card notify-settings" method="post" action="{% url 'workspace:notification-settings' %}">{% csrf_token %}
+<span class="history-dot">{% icon 'mail' %}</span>
+<div><strong>Письма на Email</strong><p>{% if email_enabled %}Включены: уведомления приходят на сайт и на почту {{ user.email }}.{% else %}Выключены: уведомления видны только здесь.{% endif %}</p></div>
+<input type="hidden" name="email_enabled" value="{% if email_enabled %}0{% else %}1{% endif %}">
+<button class="button {% if email_enabled %}button--ghost{% else %}button--primary{% endif %}" type="submit">{% if email_enabled %}Отключить письма{% else %}Включить письма{% endif %}</button>
+</form>
+<div class="remark-tabs" role="tablist" aria-label="Показать">
+<a href="?{% if kind %}kind={{ kind }}&{% endif %}{% if project_filter %}project={{ project_filter }}{% endif %}" class="{% if show != 'unread' %}active{% endif %}">Все</a>
+<a href="?show=unread{% if kind %}&kind={{ kind }}{% endif %}{% if project_filter %}&project={{ project_filter }}{% endif %}" class="{% if show == 'unread' %}active{% endif %}">Непрочитанные <b>{{ unread_total }}</b></a>
+</div>
+<form class="toolbar filter-form" method="get">
+{% if show %}<input type="hidden" name="show" value="{{ show }}">{% endif %}
+<select name="kind" aria-label="Тип"><option value="">Все типы</option>{% for value, label in kinds %}<option value="{{ value }}" {% if kind == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+<select name="project" aria-label="Проект"><option value="">Все проекты</option>{% for item in filter_projects %}<option value="{{ item.pk }}" {% if project_filter == item.pk|stringformat:'s' %}selected{% endif %}>{{ item.name }}</option>{% endfor %}</select>
+<button class="button button--ghost" type="submit">Показать</button>
+</form>
+<section class="card history-list">{% for item in notifications %}<a class="history-row notify-row{% if not item.read_at %} notify-row--unread{% endif %}" href="{% url 'workspace:notification-open' item.pk %}">
+<span class="history-dot history-dot--{{ item.kind }}">{% if item.kind == 'task' %}{% icon 'tasks' %}{% elif item.kind == 'remark' %}{% icon 'flag' %}{% elif item.kind == 'approval' %}{% icon 'stamp' %}{% elif item.kind == 'deadline' %}{% icon 'clock' %}{% elif item.kind == 'overdue' %}{% icon 'alert' %}{% else %}{% icon 'projects' %}{% endif %}</span>
+<div>
+<strong>{{ item.title }}</strong>
+{% if item.text %}<p>{{ item.text }}</p>{% endif %}
+<small>{{ item.project.name }} · {{ item.created_at|date:'d E Y, H:i' }}{% if item.emailed_at %} · отправлено на почту{% endif %}</small>
+</div>
+{% if not item.read_at %}<span class="notify-dot" title="Не прочитано" aria-label="Не прочитано"></span>{% endif %}
+</a>{% empty %}<div class="empty-state">
+<p>{% if show == 'unread' %}Непрочитанных уведомлений нет.{% else %}Уведомлений пока нет. Они появятся, когда вам назначат задачу, оставят замечание, попросят согласовать смету или подойдёт срок.{% endif %}</p>
+</div>{% endfor %}</section>
+{% if page_obj.has_other_pages %}<nav class="notify-pages" aria-label="Страницы">{% if page_obj.has_previous %}<a class="button button--ghost" href="?{{ query_string }}{% if query_string %}&{% endif %}page={{ page_obj.previous_page_number }}">← Новее</a>{% endif %}<span>Страница {{ page_obj.number }} из {{ page_obj.paginator.num_pages }}</span>{% if page_obj.has_next %}<a class="button button--ghost" href="?{{ query_string }}{% if query_string %}&{% endif %}page={{ page_obj.next_page_number }}">Старше →</a>{% endif %}</nav>{% endif %}{% endblock %}

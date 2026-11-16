@@ -102,11 +102,14 @@ def update_task(*, task, actor, version, **data):
     if not changed:
         return task
     before = {key: str(getattr(task, key)) for key in changed}
+    # The user ids let notifications tell the old and the new executor about the handover (FR19).
+    assignees = {"old_assignee_id": task.assignee.user_id, "assignee_id": changed["assignee"].user_id} if "assignee" in changed else {}
     for key, value in changed.items():
         setattr(task, key, value)
     task.version += 1
     task.save()
-    record_event(project, actor, "task.updated", task_id=task.pk, name=task.name, before=before, after={key: str(value) for key, value in changed.items()})
+    record_event(project, actor, "task.updated", task_id=task.pk, name=task.name, before=before,
+                 after={key: str(value) for key, value in changed.items()}, **assignees)
     return task
 
 
@@ -120,9 +123,9 @@ def delete_task(*, task, actor, version):
         raise ValidationError("Удалить можно только собственную задачу, к которой ещё не приступили.")
     if task.reports.exists() or task.remarks.exists():
         raise ValidationError("У задачи есть фотоотчёты или замечания. Удаление запрещено.")
-    task_id, name = task.pk, task.name
+    task_id, name, assignee_id = task.pk, task.name, task.assignee.user_id
     task.delete()
-    record_event(project, actor, "task.deleted", task_id=task_id, name=name)
+    record_event(project, actor, "task.deleted", task_id=task_id, name=name, assignee_id=assignee_id)
 
 
 @atomic_operation

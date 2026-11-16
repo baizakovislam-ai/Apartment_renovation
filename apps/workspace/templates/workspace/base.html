@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0d1729">
 <title>{% block title %}Рабочее пространство{% endblock %} — Контроль ремонта</title>
 <link rel="icon" href="{% static 'workspace/renovation-icon.svg' %}">
-<link rel="stylesheet" href="{% static 'workspace/ui.css' %}?v=85">
+<link rel="stylesheet" href="{% static 'workspace/ui.css' %}?v=86">
 <script src="{% static 'workspace/app.js' %}?v=83" defer></script>
 </head>
 <body>
@@ -22,6 +22,7 @@
 <span class="nav__label">Рабочее пространство</span>
 <a class="nav__item {% if page == 'dashboard' %}nav__item--active{% endif %}" href="{% url 'workspace:dashboard' %}{% if project %}?project={{ project.pk }}{% endif %}">{% icon 'home' %}<span>Главная</span>{% if incoming_count %}<b class="nav__badge" title="Приглашения для вас">{{ incoming_count }}</b>{% endif %}</a>
 <a class="nav__item {% if page == 'projects' %}nav__item--active{% endif %}" href="{% url 'workspace:projects' %}">{% icon 'projects' %}<span>Мои проекты</span></a>
+<a class="nav__item {% if page == 'notifications' %}nav__item--active{% endif %}" href="{% url 'workspace:notifications' %}">{% icon 'bell' %}<span>Уведомления</span>{% if unread_notifications %}<b class="nav__badge" title="Непрочитанные уведомления">{{ unread_notifications }}</b>{% endif %}</a>
 {% if keeps_price_list %}<a class="nav__item {% if page == 'price-list' %}nav__item--active{% endif %}" href="{% url 'workspace:price-list' %}">{% icon 'tag' %}<span>Мой прайс-лист</span></a>{% endif %}
 {% if project %}<span class="nav__label">Работы</span>
 <a class="nav__item {% if page == 'project' %}nav__item--active{% endif %}" href="{% url 'workspace:project' project.pk %}">{% icon 'info' %}<span>О проекте</span></a>
@@ -53,7 +54,7 @@
 <button class="icon-button mobile-menu" data-menu-open aria-label="Открыть меню" aria-controls="sidebar" aria-expanded="false">{% icon 'menu' %}</button>
 <div class="header__title"><span>{% if project %}Проект № {{ project.pk }}{% else %}Контроль ремонта квартиры{% endif %}</span><strong>{{ project.name|default:'Рабочее пространство' }}</strong></div>
 {% if project %}<form class="header-search" method="get" action="{% url 'workspace:search' project.pk %}" role="search">{% icon 'search' %}<input type="search" name="q" value="{{ query|default:'' }}" placeholder="Поиск по проекту: задачи, этапы, смета…" aria-label="Поиск по проекту"></form>{% endif %}
-<div class="header__right">{% if membership %}<span class="badge badge--blue">{{ membership.get_role_display }}</span>{% endif %}<span class="header-date">{{ today|date:'d E Y' }}</span></div>
+<div class="header__right"><a class="icon-button header-bell" href="{% url 'workspace:notifications' %}" aria-label="Уведомления{% if unread_notifications %}: непрочитанных {{ unread_notifications }}{% endif %}" title="Уведомления">{% icon 'bell' %}{% if unread_notifications %}<b>{% if unread_notifications > 99 %}99+{% else %}{{ unread_notifications }}{% endif %}</b>{% endif %}</a>{% if membership %}<span class="badge badge--blue">{{ membership.get_role_display }}</span>{% endif %}<span class="header-date">{{ today|date:'d E Y' }}</span></div>
 </header>
 <main id="content">{% if is_archived %}<div class="notice notice--warning archive-banner">Проект «{{ project.name }}» в архиве — только просмотр.{% if membership.role == 'customer' %} Вернуть его можно на странице «О проекте».{% endif %}</div>{% endif %}{% if messages %}<div class="messages" aria-live="polite">{% for message in messages %}<div class="notice notice--{{ message.tags }}">{{ message }}</div>{% endfor %}</div>{% endif %}{% block content %}{% endblock %}
 <footer class="workspace-footer"><span>Контроль ремонта квартиры</span><span>Этапы · Задачи · Смета · Приёмка</span></footer>

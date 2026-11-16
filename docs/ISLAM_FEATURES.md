@@ -14,7 +14,7 @@
 | 80% | FR16 | Предварительный расчёт и перенос в смету | [PR #6](https://github.com/baizakovislam-ai/Apartment_renovation/pull/6) | `apps/estimates/services.py` (`create_calculation` … `calculation_to_estimate`) | `apps/estimates/tests.py` |
 | 80% | FR17 | Поиск по проекту, журнал согласований, фильтры задач | [PR #6](https://github.com/baizakovislam-ai/Apartment_renovation/pull/6) | `apps/estimates/search.py`, `apps/repairs/views.py` (`filter_tasks`) | `apps/estimates/tests.py` |
 | — | — | Новый дизайн всего сайта | [PR #6](https://github.com/baizakovislam-ai/Apartment_renovation/pull/6) | `apps/workspace/static/workspace/ui.css` | — |
-| 100% | FR19 | Уведомления по срокам, просрочкам, задачам, замечаниям и согласованиям (сайт и Email) | будет отдельной веткой `islam/notifications` | — | — |
+| 100% | FR19 | Уведомления по срокам, просрочкам, задачам, замечаниям и согласованиям (сайт и Email) | ветка `claude/complete-and-test-functions-b7710a` | `apps/communications/` (`rules.py`, `services.py`), `apps/workspace/notification_views.py` | `apps/communications/tests.py` |
 
 ## После введения правила
 

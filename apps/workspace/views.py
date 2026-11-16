@@ -11,6 +11,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 from rest_framework.exceptions import APIException
 
+from apps.communications import services as notification_services
 from apps.pricing import services as price_services
 from apps.projects import services as project_services
 from apps.projects.emails import send_invitation_email
@@ -42,6 +43,7 @@ def own_project(request, project_id):
 
 
 def context(request, project=None, page="dashboard", **extra):
+    notification_services.run_daily_check()  # deadline reminders (FR19), once a day
     membership = active_membership(project, request.user) if project else None
     role = membership.role if membership else None
     archived = bool(project and project.is_archived)
@@ -53,6 +55,7 @@ def context(request, project=None, page="dashboard", **extra):
         "nav_manager": role in ("customer", "foreman"),
         "is_archived": archived,
         "incoming_count": project_services.pending_invitations_for(request.user).count(),
+        "unread_notifications": notification_services.unread_count(request.user),
         "keeps_price_list": price_services.is_foreman(request.user),
         # The customer sees how many expenses wait for a decision right in the menu (FR12).
         "pending_expenses": project.expenses.filter(status="pending").count() if role == "customer" and not archived else 0,

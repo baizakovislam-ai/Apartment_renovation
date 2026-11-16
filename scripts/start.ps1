@@ -48,6 +48,9 @@ if (Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyCon
     exit 0
 }
 
+# Ссылки в письмах-уведомлениях ведут на этот же адрес (если SITE_URL не задан в .env).
+if (-not $env:SITE_URL) { $env:SITE_URL = $url.TrimEnd("/") }
+
 Write-Host "`nГотово. Адрес проекта: $url" -ForegroundColor Green
 if ($Lan) { Write-Host "Отправьте этот адрес участникам из той же сети. Если Windows спросит про брандмауэр — разрешите для частных сетей." }
 Write-Host "Демо-аккаунты: customer@example.com / foreman@example.com / executor@example.com, пароль RepairDemo2026!"
