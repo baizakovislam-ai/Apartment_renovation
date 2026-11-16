@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>{{ notification.title }}</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f6fb;-webkit-text-size-adjust:100%;">
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:#f4f6fb;">{{ preheader }}</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f4f6fb;">
+<tr><td align="center" style="padding:28px 12px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;font-family:Inter,'Segoe UI',Arial,sans-serif;color:#0f172a;">
+
+<tr><td style="background:#0d1729;border-radius:14px 14px 0 0;padding:20px 28px;">
+<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+<td style="width:38px;height:38px;background:#2563eb;border-radius:10px;text-align:center;vertical-align:middle;color:#ffffff;font-size:15px;font-weight:800;letter-spacing:.02em;">КР</td>
+<td style="padding-left:12px;"><div style="color:#ffffff;font-size:16px;font-weight:700;line-height:1.2;">Контроль ремонта</div><div style="color:#7d8ba5;font-size:12px;line-height:1.4;">квартиры под контролем</div></td>
+</tr></table>
+</td></tr>
+
+<tr><td style="background:#ffffff;border-left:1px solid #e5e9f2;border-right:1px solid #e5e9f2;padding:28px 28px 8px;">
+<span style="display:inline-block;padding:5px 11px;border-radius:999px;background:{{ tone.bg }};color:{{ tone.fg }};font-size:12px;font-weight:700;letter-spacing:.02em;">{{ tone.icon }}&nbsp; {{ tone.label }}</span>
+<p style="margin:18px 0 6px;font-size:15px;color:#334155;">Здравствуйте, {{ name }}!</p>
+<h1 style="margin:0 0 10px;font-size:22px;line-height:1.3;font-weight:800;color:#0f172a;">{{ notification.title }}</h1>
+{% if notification.text %}<div style="margin:0 0 18px;padding:14px 16px;background:#f8fafc;border-left:4px solid {{ tone.fg }};border-radius:8px;font-size:15px;line-height:1.55;color:#334155;">{{ notification.text|linebreaksbr }}</div>{% endif %}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:4px 0 22px;font-size:14px;">
+<tr><td style="padding:9px 0;border-top:1px solid #eef1f7;color:#64748b;width:130px;">Проект</td><td style="padding:9px 0;border-top:1px solid #eef1f7;color:#0f172a;font-weight:600;">{{ notification.project.name }}</td></tr>
+{% if actor %}<tr><td style="padding:9px 0;border-top:1px solid #eef1f7;color:#64748b;">Кто</td><td style="padding:9px 0;border-top:1px solid #eef1f7;color:#0f172a;">{{ actor }}</td></tr>{% endif %}
+<tr><td style="padding:9px 0;border-top:1px solid #eef1f7;border-bottom:1px solid #eef1f7;color:#64748b;">Когда</td><td style="padding:9px 0;border-top:1px solid #eef1f7;border-bottom:1px solid #eef1f7;color:#0f172a;">{{ when }}</td></tr>
+</table>
+{% if link %}<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 22px;"><tr><td style="border-radius:11px;background:#2563eb;">
+<a href="{{ link }}" style="display:inline-block;padding:13px 24px;font-size:15px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:11px;">{{ button }} &rarr;</a>
+</td></tr></table>
+{% if local_only %}<p style="margin:0 0 12px;padding:10px 12px;background:#fff6e5;border-radius:8px;font-size:13px;line-height:1.5;color:#92400e;">Сайт сейчас запущен только на компьютере, поэтому ссылка откроется на нём, а не на телефоне. Чтобы открывать ссылки с телефона в той же Wi-Fi сети, запустите сайт через <b>start_lan.bat</b>.</p>{% endif %}
+<p style="margin:0 0 20px;font-size:12.5px;line-height:1.5;color:#94a3b8;">Если кнопка не открывается, скопируйте адрес в браузер:<br><a href="{{ link }}" style="color:#2563eb;word-break:break-all;">{{ link }}</a></p>{% endif %}
+</td></tr>
+
+<tr><td style="background:#f8fafc;border:1px solid #e5e9f2;border-radius:0 0 14px 14px;padding:16px 28px;font-size:12.5px;line-height:1.55;color:#64748b;">
+Вы получили это письмо, потому что участвуете в проекте «{{ notification.project.name }}».<br>
+<a href="{{ site }}/notifications/" style="color:#2563eb;text-decoration:none;font-weight:600;">Все уведомления</a>
+&nbsp;·&nbsp; <a href="{{ site }}/notifications/#email-settings" style="color:#64748b;">Отключить письма</a>
+</td></tr>
+
+<tr><td align="center" style="padding:16px 0 0;font-size:12px;color:#94a3b8;">Контроль ремонта квартиры · Этапы · Задачи · Смета · Приёмка</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>

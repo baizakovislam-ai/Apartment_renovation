@@ -165,6 +165,8 @@ DEFAULT_FROM_EMAIL = os.getenv(
 # Notifications (FR19): the address used in email links, background sending, daily deadline check.
 SITE_URL = os.getenv("SITE_URL", "http://127.0.0.1:8001")
 NOTIFICATION_EMAIL_ASYNC = os.getenv("NOTIFICATION_EMAIL_ASYNC", "True").lower() in {"true", "1", "yes"}
+# Не слать письма на example.com, *.test и т. п. (демо-аккаунты): таких ящиков нет, письмо вернётся «Адрес не найден».
+NOTIFICATION_SKIP_RESERVED_DOMAINS = os.getenv("NOTIFICATION_SKIP_RESERVED_DOMAINS", "True").lower() in {"true", "1", "yes"}
 NOTIFICATION_DEADLINE_AUTOCHECK = os.getenv("NOTIFICATION_DEADLINE_AUTOCHECK", "True").lower() in {"true", "1", "yes"}
 
 AUTH_USER_MODEL = "accounts.User"
