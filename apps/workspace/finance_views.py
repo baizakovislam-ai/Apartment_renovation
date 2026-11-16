@@ -46,7 +46,7 @@ def estimate_page(request, project_id, estimate_id=None):
     summary = estimate_services.estimate_summary(estimate) if estimate else None
     budget = project.budget
     difference = (budget - summary["total"]) if (summary and budget is not None) else None
-    can_edit = bool(estimate and estimate.is_editable and not project.is_archived)
+    can_edit = bool(estimate and estimate.is_editable and not project.is_read_only)
     line_form = EstimateLineForm(project=project, estimate=estimate) if can_edit else None
     return render(request, "workspace/estimate.html", context(
         request, project, "estimate", estimate=estimate, summary=summary, budget=budget, difference=difference,
@@ -192,12 +192,12 @@ def change_detail(request, project_id, change_id):
     membership = active_membership(project, request.user)
     change = get_object_or_404(project.change_requests.select_related("estimate", "created_by", "submitted_by", "decided_by",
                                                                        "result_estimate", "schedule_stage"), pk=change_id)
-    can_edit = change.is_editable and change_services.is_author(change, request.user) and not project.is_archived
+    can_edit = change.is_editable and change_services.is_author(change, request.user) and not project.is_read_only
     approved = estimate_services.approved_estimate(project)
     return render(request, "workspace/estimate_change.html", context(
         request, project, "estimate-changes", change=change, rows=change_services.preview(change),
         effect=change_services.budget_effect(change), can_edit=can_edit,
-        can_decide=change_services.can_decide(change, membership) and not project.is_archived,
+        can_decide=change_services.can_decide(change, membership) and not project.is_read_only,
         is_author=change_services.is_author(change, request.user), is_stale=change.is_open and approved != change.estimate,
         add_form=ChangeItemForm(change=change) if can_edit else None,
         edit_form=ChangeRequestForm(project=project, change=change) if can_edit else None,

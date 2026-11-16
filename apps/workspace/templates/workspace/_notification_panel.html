@@ -1,0 +1,10 @@
+{% load workspace_ui %}<div class="bell-panel__head">
+<div><strong>Уведомления</strong><small>{% if unread_total %}Непрочитанных: {{ unread_total }}{% else %}Все прочитаны{% endif %}</small></div>
+{% if unread_total %}<form method="post" action="{% url 'workspace:notifications-read-all' %}" data-bell-read-all>{% csrf_token %}<input type="hidden" name="next" value="{{ next }}"><button class="bell-panel__link" type="submit">{% icon 'check' 16 %} Прочитать все</button></form>{% endif %}
+</div>
+<div class="bell-panel__list" data-unread="{{ unread_total }}">{% for item in notifications %}<a class="bell-item{% if not item.read_at %} bell-item--unread{% endif %}" href="{% url 'workspace:notification-open' item.pk %}">
+<span class="history-dot history-dot--{{ item.kind }}">{% notify_icon item.kind 16 %}</span>
+<span class="bell-item__body"><strong>{{ item.title }}</strong>{% if item.text %}<span class="bell-item__text">{{ item.text }}</span>{% endif %}<small>{{ item.project.name }} · {{ item.created_at|ago }}</small></span>
+{% if not item.read_at %}<span class="notify-dot" aria-label="Не прочитано"></span>{% endif %}
+</a>{% empty %}<div class="bell-panel__empty"><span class="history-dot">{% icon 'bell' %}</span><p>Уведомлений пока нет.</p><small>Здесь появятся новые задачи, замечания, согласования и напоминания о сроках.</small></div>{% endfor %}</div>
+<div class="bell-panel__foot"><a href="{% url 'workspace:notifications' %}">Все уведомления {% icon 'arrow' 16 %}</a><a href="{% url 'workspace:notifications' %}#email-settings" class="bell-panel__muted">{% icon 'mail' 16 %} Письма на Email</a></div>

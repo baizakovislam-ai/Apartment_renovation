@@ -9,6 +9,7 @@ from .models import Project, ProjectEvent, ProjectInvitation, ProjectMember
 from .permissions import require_customer, require_manager
 
 ARCHIVED_MESSAGE = "Проект в архиве. Верните его из архива, чтобы вносить изменения."
+COMPLETED_MESSAGE = "Проект завершён. Изменения в нём больше не вносятся."
 
 
 def atomic_operation(func):
@@ -22,11 +23,13 @@ def atomic_operation(func):
     return wrapped
 
 
-def lock_project(project, allow_archived=False):
-    """Lock the project row for the transaction; archived projects are read-only."""
+def lock_project(project, allow_archived=False, allow_completed=False):
+    """Lock the project row for the transaction; archived and completed projects are read-only."""
     project = Project.objects.select_for_update().get(pk=project.pk)
     if project.archived_at is not None and not allow_archived:
         raise ValidationError(ARCHIVED_MESSAGE)
+    if project.status == Project.Status.COMPLETED and not allow_completed:
+        raise ValidationError(COMPLETED_MESSAGE)
     return project
 
 
@@ -74,8 +77,6 @@ def create_project(*, user, **data):
 def update_project(*, project, actor, **data):
     project = lock_project(project)
     require_customer(project, actor)
-    if project.status == Project.Status.COMPLETED:
-        raise ValidationError("Завершённый проект нельзя изменить.")
     validate_project(data, project)
     changed = {key: value for key, value in data.items() if getattr(project, key) != value}
     if not changed:
@@ -135,7 +136,7 @@ def delete_project(*, project, actor):
 
 @atomic_operation
 def archive_project(*, project, actor, reason):
-    project = lock_project(project)
+    project = lock_project(project, allow_completed=True)  # a finished repair can still be moved out of the list
     require_customer(project, actor)
     reason = (reason or "").strip()
     if not reason:
@@ -149,7 +150,7 @@ def archive_project(*, project, actor, reason):
 
 @atomic_operation
 def restore_project(*, project, actor):
-    project = lock_project(project, allow_archived=True)
+    project = lock_project(project, allow_archived=True, allow_completed=True)
     require_customer(project, actor)
     if project.archived_at is None:
         raise ValidationError("Проект не находится в архиве.")

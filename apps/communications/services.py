@@ -12,9 +12,11 @@ from datetime import timedelta
 
 from django.conf import settings
 from django.core.cache import cache
-from django.core.mail import EmailMessage, get_connection
+from django.core.mail import EmailMultiAlternatives, get_connection
 from django.db import IntegrityError, close_old_connections, transaction
+from django.template.loader import render_to_string
 from django.utils import timezone
+from django.utils.formats import date_format
 
 from apps.projects.models import ProjectMember
 from .models import Notification, NotificationSettings
@@ -65,23 +67,78 @@ def on_project_event(sender, instance, created, **kwargs):
 
 # ---------- Email ----------
 
+# Reserved for examples and tests (RFC 2606, RFC 6761): such mailboxes do not exist, a letter would only
+# come back to the sender as «Адрес не найден». The demo accounts use them (customer@example.com …).
+UNDELIVERABLE_DOMAINS = ("example.com", "example.org", "example.net")
+UNDELIVERABLE_ZONES = (".example", ".test", ".invalid", ".localhost", ".local")
+
+
+def is_deliverable(email):
+    if not settings.NOTIFICATION_SKIP_RESERVED_DOMAINS:
+        return bool(email)
+    domain = email.rpartition("@")[2].strip().lower()
+    return bool(domain) and not (domain in UNDELIVERABLE_DOMAINS or domain.endswith(tuple("." + d for d in UNDELIVERABLE_DOMAINS))
+                                 or domain.endswith(UNDELIVERABLE_ZONES) or domain in {z[1:] for z in UNDELIVERABLE_ZONES})
+
+
 def wants_email(user):
     prefs = NotificationSettings.objects.filter(user=user).first()
-    return (prefs is None or prefs.email_enabled) and bool(user.email) and user.is_active
+    return (prefs is None or prefs.email_enabled) and bool(user.email) and user.is_active and is_deliverable(user.email)
+
+
+def local_only(site):
+    """The site was started only for this computer (start.bat): such a link opens only here, not on a phone."""
+    host = site.split("//", 1)[-1].split("/", 1)[0].rsplit(":", 1)[0].strip("[]").lower()
+    return host in {"127.0.0.1", "localhost", "::1", "0.0.0.0"}
+
+
+EMAIL_TONES = {  # the same colours as the notification icons on the site
+    "task": {"label": "Задача", "bg": "#eff4ff", "fg": "#2563eb", "icon": "☑"},
+    "remark": {"label": "Замечание", "bg": "#f3edff", "fg": "#6d28d9", "icon": "⚑"},
+    "approval": {"label": "Согласование", "bg": "#e7f8f5", "fg": "#0f766e", "icon": "✔"},
+    "deadline": {"label": "Срок", "bg": "#fff6e5", "fg": "#b45309", "icon": "⏰"},
+    "overdue": {"label": "Просрочка", "bg": "#fdeeee", "fg": "#b91c1c", "icon": "⚠"},
+    "project": {"label": "Проект", "bg": "#eff4ff", "fg": "#2563eb", "icon": "⌂"},
+}
+BUTTONS = (("/tasks/", "Открыть задачу"), ("/remarks/", "Открыть замечание"), ("/estimate/changes/", "Открыть изменение сметы"),
+           ("/estimate/", "Открыть смету"), ("/expenses/", "Открыть расход"), ("/acceptance", "Открыть приёмку"),
+           ("/stages/", "Открыть этапы"), ("/members/", "Открыть участников"), ("/projects/", "Открыть проект"))
+
+
+def button_label(path):
+    return next((label for part, label in BUTTONS if part in path), "Открыть в системе")
 
 
 def email_message(notification):
+    """A letter in the style of the site (HTML) with a plain-text copy for mail programs without HTML."""
     site = settings.SITE_URL.rstrip("/")
     name = notification.user.get_full_name() or notification.user.email
+    link = f"{site}{notification.url}" if notification.url else ""
+    actor = notification.actor
+    actor_name = (actor.get_full_name() or actor.email) if actor and actor != notification.user else ""
+    when = date_format(timezone.localtime(notification.created_at), "j E Y, H:i")
     lines = [f"Здравствуйте, {name}!", "", notification.title]
     if notification.text:
         lines.append(notification.text)
     lines += ["", f"Проект: {notification.project.name}"]
-    if notification.url:
-        lines.append(f"Открыть: {site}{notification.url}")
+    if actor_name:
+        lines.append(f"Кто: {actor_name}")
+    lines.append(f"Когда: {when}")
+    if link:
+        lines.append(f"Открыть: {link}")
+        if local_only(site):
+            lines.append("(ссылка открывается на компьютере, где запущен сайт)")
     lines += ["", "—", "Контроль ремонта квартиры",
               f"Все уведомления и настройка писем: {site}/notifications/"]
-    return EmailMessage(f"{notification.title} — {notification.project.name}", "\n".join(lines), None, [notification.user.email])
+    html = render_to_string("communications/email/notification.html", {
+        "notification": notification, "name": name, "link": link, "site": site, "actor": actor_name, "when": when,
+        "button": button_label(notification.url or ""), "tone": EMAIL_TONES.get(notification.kind, EMAIL_TONES["project"]),
+        "preheader": notification.text or notification.project.name, "local_only": local_only(site),
+    })
+    body = "\n".join(lines)
+    message = EmailMultiAlternatives(f"{notification.title} — {notification.project.name}", body, None, [notification.user.email])
+    message.attach_alternative(html, "text/html")
+    return message
 
 
 def deliver(ids):
@@ -124,7 +181,8 @@ def deadline_notes(today):
     from apps.quality.models import Remark
     from apps.repairs.models import Stage, Task
     soon = today + timedelta(days=DUE_SOON_DAYS)
-    live = {"project__archived_at__isnull": True}
+    # No reminders for archived or completed projects: nothing can be changed there any more.
+    live = {"project__archived_at__isnull": True, "project__status__in": ("planning", "in_progress")}
     result = []  # (project, Note with .key)
 
     def add(project, user, kind, title, text, link, key):
