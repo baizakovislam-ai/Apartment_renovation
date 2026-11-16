@@ -274,3 +274,59 @@ class NotificationPageTests(NotificationTestCase):
         self.assertEqual(self.client.get("/api/notifications/?unread=1").json()["results"], [])
         self.client.force_login(self.stranger)
         self.assertEqual(self.client.post(f"/api/notifications/{self.note.pk}/read/").status_code, 404)
+
+
+class BellAndEmailDesignTests(NotificationTestCase):
+    """The bell drop-down in the header, live counter and the HTML letter."""
+
+    def setUp(self):
+        super().setUp()
+        self.task = self.create_task()
+        self.note = self.notes(self.executor)[0]
+
+    def test_bell_panel_shows_latest_notifications(self):
+        self.client.force_login(self.executor)
+        page = self.client.get(reverse("workspace:dashboard"))
+        self.assertContains(page, "data-bell-button")
+        self.assertContains(page, reverse("workspace:notifications-panel"))
+        panel = self.client.get(reverse("workspace:notifications-panel"))
+        self.assertContains(panel, "Вам назначена задача «Кабель на кухне»")
+        self.assertContains(panel, "Непрочитанных: 1")
+        self.assertContains(panel, reverse("workspace:notification-open", args=[self.note.pk]))
+        self.client.force_login(self.stranger)
+        self.assertNotContains(self.client.get(reverse("workspace:notifications-panel")), "Кабель на кухне")
+
+    def test_counter_and_read_from_the_bell(self):
+        self.client.force_login(self.executor)
+        self.assertEqual(self.client.get(reverse("workspace:notifications-count")).json(), {"unread": 1})
+        response = self.client.post(reverse("workspace:notifications-read-all"), HTTP_X_REQUESTED_WITH="fetch")
+        self.assertEqual(response.json(), {"read": 1, "unread": 0})
+        self.assertEqual(self.client.get(reverse("workspace:notifications-count")).json(), {"unread": 0})
+
+    def test_mark_one_notification_read(self):
+        self.client.force_login(self.stranger)
+        self.assertEqual(self.client.post(reverse("workspace:notification-read", args=[self.note.pk])).status_code, 404)
+        self.client.force_login(self.executor)
+        response = self.client.post(reverse("workspace:notification-read", args=[self.note.pk]), {"next": "/notifications/?show=unread"})
+        self.assertRedirects(response, "/notifications/?show=unread")
+        self.note.refresh_from_db()
+        self.assertIsNotNone(self.note.read_at)
+
+    def test_page_groups_by_day_and_counts_kinds(self):
+        self.client.force_login(self.executor)
+        response = self.client.get(reverse("workspace:notifications"))
+        self.assertContains(response, "Сегодня")
+        self.assertContains(response, 'kind=task" class=""><span class="history-dot history-dot--task">', html=False)
+        self.assertContains(response, "Задачи <b>1</b>", html=False)
+
+    def test_email_is_designed_like_the_site(self):
+        message = mail.outbox[0]
+        html, mime = message.alternatives[0]
+        self.assertEqual(mime, "text/html")
+        self.assertIn("Контроль ремонта", html)
+        self.assertIn("Вам назначена задача «Кабель на кухне»", html)
+        self.assertIn(f"http://testserver{self.note.url}", html)
+        self.assertIn("Открыть задачу", html)
+        self.assertIn("#2563eb", html)  # the brand colour of the site
+        self.assertIn("/notifications/#email-settings", html)
+        self.assertIn("Кто: foreman", message.body)  # the plain-text copy stays for mail programs without HTML

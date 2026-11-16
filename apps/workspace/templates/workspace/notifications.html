@@ -4,33 +4,45 @@
 <h1>Уведомления</h1>
 <p>Назначения и изменения задач, замечания, согласования, приближение сроков и просрочки по всем вашим проектам.{% if email_enabled %} Копия каждого уведомления приходит на {{ user.email }}.{% endif %}</p>
 </div>
-<div class="page-actions">{% if unread_total %}<form method="post" action="{% url 'workspace:notifications-read-all' %}">{% csrf_token %}<button class="button button--ghost" type="submit">{% icon 'check' %} Прочитать все</button></form>{% endif %}</div>
+<div class="page-actions">{% if unread_total %}<form method="post" action="{% url 'workspace:notifications-read-all' %}" data-once>{% csrf_token %}<button class="button button--ghost" type="submit">{% icon 'check' %} Прочитать все</button></form>{% endif %}</div>
 </div>
-<form class="card notify-settings" method="post" action="{% url 'workspace:notification-settings' %}">{% csrf_token %}
-<span class="history-dot">{% icon 'mail' %}</span>
-<div><strong>Письма на Email</strong><p>{% if email_enabled %}Включены: уведомления приходят на сайт и на почту {{ user.email }}.{% else %}Выключены: уведомления видны только здесь.{% endif %}</p></div>
+<div class="notify-hero">
+<div class="card notify-stat"><span class="history-dot">{% icon 'bell' 20 %}</span><div><strong>{{ unread_total }}</strong><small>Непрочитанные</small></div></div>
+<div class="card notify-stat"><span class="history-dot history-dot--approval">{% icon 'clock' 20 %}</span><div><strong>{{ week_total }}</strong><small>За последние 7 дней</small></div></div>
+<form class="card notify-stat notify-settings" id="email-settings" method="post" action="{% url 'workspace:notification-settings' %}" data-once>{% csrf_token %}
+<span class="history-dot {% if email_enabled %}history-dot--approval{% else %}history-dot--overdue{% endif %}">{% icon 'mail' 20 %}</span>
+<div><strong class="notify-settings__title">Письма на Email</strong><p>{% if email_enabled %}Включены: уведомления приходят на сайт и на почту {{ user.email }}.{% else %}Выключены: уведомления видны только здесь.{% endif %}</p></div>
 <input type="hidden" name="email_enabled" value="{% if email_enabled %}0{% else %}1{% endif %}">
 <button class="button {% if email_enabled %}button--ghost{% else %}button--primary{% endif %}" type="submit">{% if email_enabled %}Отключить письма{% else %}Включить письма{% endif %}</button>
 </form>
+</div>
+<nav class="notify-kinds" aria-label="Тип уведомлений">
+<a href="?{{ kind_query }}" class="{% if not kind %}active{% endif %}"><span class="history-dot">{% icon 'bell' 14 %}</span>Все типы</a>
+{% for value, label, count in kinds %}<a href="?{% if kind_query %}{{ kind_query }}&{% endif %}kind={{ value }}" class="{% if kind == value %}active{% endif %}"><span class="history-dot history-dot--{{ value }}">{% notify_icon value 14 %}</span>{{ label }}{% if count %} <b>{{ count }}</b>{% endif %}</a>{% endfor %}
+</nav>
+<div class="notify-tools">
 <div class="remark-tabs" role="tablist" aria-label="Показать">
 <a href="?{% if kind %}kind={{ kind }}&{% endif %}{% if project_filter %}project={{ project_filter }}{% endif %}" class="{% if show != 'unread' %}active{% endif %}">Все</a>
 <a href="?show=unread{% if kind %}&kind={{ kind }}{% endif %}{% if project_filter %}&project={{ project_filter }}{% endif %}" class="{% if show == 'unread' %}active{% endif %}">Непрочитанные <b>{{ unread_total }}</b></a>
 </div>
-<form class="toolbar filter-form" method="get">
-{% if show %}<input type="hidden" name="show" value="{{ show }}">{% endif %}
-<select name="kind" aria-label="Тип"><option value="">Все типы</option>{% for value, label in kinds %}<option value="{{ value }}" {% if kind == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
-<select name="project" aria-label="Проект"><option value="">Все проекты</option>{% for item in filter_projects %}<option value="{{ item.pk }}" {% if project_filter == item.pk|stringformat:'s' %}selected{% endif %}>{{ item.name }}</option>{% endfor %}</select>
-<button class="button button--ghost" type="submit">Показать</button>
-</form>
-<section class="card history-list">{% for item in notifications %}<a class="history-row notify-row{% if not item.read_at %} notify-row--unread{% endif %}" href="{% url 'workspace:notification-open' item.pk %}">
-<span class="history-dot history-dot--{{ item.kind }}">{% if item.kind == 'task' %}{% icon 'tasks' %}{% elif item.kind == 'remark' %}{% icon 'flag' %}{% elif item.kind == 'approval' %}{% icon 'stamp' %}{% elif item.kind == 'deadline' %}{% icon 'clock' %}{% elif item.kind == 'overdue' %}{% icon 'alert' %}{% else %}{% icon 'projects' %}{% endif %}</span>
-<div>
+{% if filter_projects|length > 1 %}<form class="toolbar filter-form" method="get">
+{% if show %}<input type="hidden" name="show" value="{{ show }}">{% endif %}{% if kind %}<input type="hidden" name="kind" value="{{ kind }}">{% endif %}
+<select name="project" aria-label="Проект" onchange="this.form.submit()"><option value="">Все проекты</option>{% for item in filter_projects %}<option value="{{ item.pk }}" {% if project_filter == item.pk|stringformat:'s' %}selected{% endif %}>{{ item.name }}</option>{% endfor %}</select>
+<noscript><button class="button button--ghost" type="submit">Показать</button></noscript>
+</form>{% endif %}
+</div>
+{% for label, items in groups %}<section class="card notify-day" aria-label="{{ label }}"><h2>{{ label }}</h2>
+{% for item in items %}<article class="notify-item{% if not item.read_at %} notify-item--unread{% endif %}">
+<span class="history-dot history-dot--{{ item.kind }}">{% notify_icon item.kind %}</span>
+<a class="notify-item__main" href="{% url 'workspace:notification-open' item.pk %}">
 <strong>{{ item.title }}</strong>
 {% if item.text %}<p>{{ item.text }}</p>{% endif %}
-<small>{{ item.project.name }} · {{ item.created_at|date:'d E Y, H:i' }}{% if item.emailed_at %} · отправлено на почту{% endif %}</small>
-</div>
-{% if not item.read_at %}<span class="notify-dot" title="Не прочитано" aria-label="Не прочитано"></span>{% endif %}
-</a>{% empty %}<div class="empty-state">
-<p>{% if show == 'unread' %}Непрочитанных уведомлений нет.{% else %}Уведомлений пока нет. Они появятся, когда вам назначат задачу, оставят замечание, попросят согласовать смету или подойдёт срок.{% endif %}</p>
-</div>{% endfor %}</section>
+<span class="notify-item__meta"><span>{% icon 'projects' 13 %} {{ item.project.name }}</span><span title="{{ item.created_at|date:'d.m.Y H:i' }}">{% icon 'clock' 13 %} {{ item.created_at|ago }}</span>{% if item.actor %}<span>{% icon 'user' 13 %} {{ item.actor|display_name }}</span>{% endif %}{% if item.emailed_at %}<span>{% icon 'mail' 13 %} отправлено на почту</span>{% endif %}</span>
+</a>
+<div class="notify-item__side">{% if not item.read_at %}<span class="notify-dot" title="Не прочитано" aria-label="Не прочитано"></span><form method="post" action="{% url 'workspace:notification-read' item.pk %}">{% csrf_token %}<input type="hidden" name="next" value="{{ request.get_full_path }}"><button class="notify-read" type="submit" title="Отметить прочитанным" aria-label="Отметить прочитанным">{% icon 'check' 16 %}</button></form>{% endif %}</div>
+</article>{% endfor %}
+</section>{% empty %}<section class="card"><div class="empty-state">
+<span class="history-dot">{% icon 'bell' 20 %}</span>
+<p>{% if show == 'unread' %}Непрочитанных уведомлений нет.{% elif kind or project_filter %}Уведомлений с такими условиями нет.{% else %}Уведомлений пока нет. Они появятся, когда вам назначат задачу, оставят замечание, попросят согласовать смету или подойдёт срок.{% endif %}</p>
+</div></section>{% endfor %}
 {% if page_obj.has_other_pages %}<nav class="notify-pages" aria-label="Страницы">{% if page_obj.has_previous %}<a class="button button--ghost" href="?{{ query_string }}{% if query_string %}&{% endif %}page={{ page_obj.previous_page_number }}">← Новее</a>{% endif %}<span>Страница {{ page_obj.number }} из {{ page_obj.paginator.num_pages }}</span>{% if page_obj.has_next %}<a class="button button--ghost" href="?{{ query_string }}{% if query_string %}&{% endif %}page={{ page_obj.next_page_number }}">Старше →</a>{% endif %}</nav>{% endif %}{% endblock %}
