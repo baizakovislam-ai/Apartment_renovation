@@ -1,0 +1,38 @@
+{% extends 'communications/email/base.html' %}{% block title %}Приглашение в проект «{{ invitation.project.name }}»{% endblock %}
+{% block preheader %}{{ inviter }} приглашает вас в проект «{{ invitation.project.name }}». Роль: {{ invitation.get_role_display }}.{% endblock %}
+{% block body %}<tr><td style="background:#ffffff;border-left:1px solid #e5e9f2;border-right:1px solid #e5e9f2;padding:28px 28px 8px;">
+<span style="display:inline-block;padding:5px 11px;border-radius:999px;background:#eff4ff;color:#2563eb;font-size:12px;font-weight:700;letter-spacing:.02em;">&#9993;&nbsp; Приглашение в проект</span>
+<p style="margin:18px 0 6px;font-size:15px;color:#334155;">Здравствуйте!</p>
+<h1 style="margin:0 0 10px;font-size:22px;line-height:1.3;font-weight:800;color:#0f172a;">{{ inviter }} приглашает вас в проект «{{ invitation.project.name }}»</h1>
+<p style="margin:0 0 18px;font-size:15px;line-height:1.55;color:#334155;">В системе «Контроль ремонта квартиры» участники ведут этапы и задачи, смету, приёмку работ и замечания в одном месте.</p>
+
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 20px;background:#0f1f3d;background-image:linear-gradient(120deg,#0f1f3d,#1e3a8a 60%,#2563eb);border-radius:12px;">
+<tr><td style="padding:18px 20px;">
+<div style="font-size:11.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#93c5fd;">Ваша роль</div>
+<div style="margin-top:4px;font-size:20px;font-weight:800;color:#ffffff;">{{ invitation.get_role_display }}</div>
+<div style="margin-top:6px;font-size:13.5px;line-height:1.5;color:#bcd0f5;">{{ role_hint }}</div>
+</td></tr>
+</table>
+
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 22px;font-size:14px;">
+<tr><td style="padding:9px 0;border-top:1px solid #eef1f7;color:#64748b;width:150px;">Проект</td><td style="padding:9px 0;border-top:1px solid #eef1f7;color:#0f172a;font-weight:600;">{{ invitation.project.name }}</td></tr>
+{% if invitation.project.address %}<tr><td style="padding:9px 0;border-top:1px solid #eef1f7;color:#64748b;">Адрес</td><td style="padding:9px 0;border-top:1px solid #eef1f7;color:#0f172a;">{{ invitation.project.address }}</td></tr>{% endif %}
+<tr><td style="padding:9px 0;border-top:1px solid #eef1f7;color:#64748b;">Пригласил(а)</td><td style="padding:9px 0;border-top:1px solid #eef1f7;color:#0f172a;">{{ inviter }}</td></tr>
+<tr><td style="padding:9px 0;border-top:1px solid #eef1f7;color:#64748b;">Войти под email</td><td style="padding:9px 0;border-top:1px solid #eef1f7;color:#0f172a;">{{ invitation.email }}</td></tr>
+<tr><td style="padding:9px 0;border-top:1px solid #eef1f7;border-bottom:1px solid #eef1f7;color:#64748b;">Действует до</td><td style="padding:9px 0;border-top:1px solid #eef1f7;border-bottom:1px solid #eef1f7;color:#0f172a;">{{ expires }}</td></tr>
+</table>
+
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 18px;"><tr><td style="border-radius:11px;background:#2563eb;">
+<a href="{{ accept_url }}" style="display:inline-block;padding:13px 24px;font-size:15px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:11px;">Принять приглашение &rarr;</a>
+</td></tr></table>
+
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 18px;font-size:13.5px;line-height:1.5;color:#334155;">
+<tr><td style="padding:3px 10px 3px 0;vertical-align:top;color:#2563eb;font-weight:800;width:18px;">1</td><td style="padding:3px 0;">Откройте ссылку и войдите под адресом <b>{{ invitation.email }}</b>.</td></tr>
+<tr><td style="padding:3px 10px 3px 0;vertical-align:top;color:#2563eb;font-weight:800;">2</td><td style="padding:3px 0;">Если аккаунта ещё нет — зарегистрируйтесь с этим же email.</td></tr>
+<tr><td style="padding:3px 10px 3px 0;vertical-align:top;color:#2563eb;font-weight:800;">3</td><td style="padding:3px 0;">Нажмите «Принять». Приглашение также будет ждать вас на главной странице.</td></tr>
+</table>
+{% if local_only %}<p style="margin:0 0 12px;padding:10px 12px;background:#fff6e5;border-radius:8px;font-size:13px;line-height:1.5;color:#92400e;">Сайт сейчас запущен только на компьютере, поэтому ссылка откроется на нём, а не на телефоне. Чтобы открывать ссылки с телефона в той же Wi-Fi сети, запустите сайт через <b>start_lan.bat</b>.</p>{% endif %}
+<p style="margin:0 0 20px;font-size:12.5px;line-height:1.5;color:#94a3b8;">Если кнопка не открывается, скопируйте адрес в браузер:<br><a href="{{ accept_url }}" style="color:#2563eb;word-break:break-all;">{{ accept_url }}</a></p>
+</td></tr>
+{% endblock %}
+{% block footer %}Вы получили это письмо, потому что {{ inviter }} указал(а) ваш адрес при приглашении в проект.<br>Если вы не ждали этого письма, просто проигнорируйте его — без вашего согласия вас не добавят в проект.{% endblock %}
