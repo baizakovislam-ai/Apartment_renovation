@@ -24,7 +24,7 @@
 {% if comment.text %}<p>{{ comment.text|linebreaksbr }}</p>{% endif %}
 {% if comment.photos.all %}<div class="photo-grid">{% for photo in comment.photos.all %}<a href="{% url 'remark-photo-file' photo.pk %}" target="_blank" rel="noopener"><img src="{% url 'remark-photo-file' photo.pk %}" alt="Фото к ответу" loading="lazy"></a>{% endfor %}</div>{% endif %}
 </div></div>{% empty %}<p class="muted-text">Ответов пока нет.</p>{% endfor %}
-{% if remark.status != 'closed' and not is_archived %}<form class="reply-form" method="post" action="{% url 'workspace:remark-action' project.pk remark.pk %}" enctype="multipart/form-data" data-once>{% csrf_token %}
+{% if remark.status != 'closed' and not is_read_only %}<form class="reply-form" method="post" action="{% url 'workspace:remark-action' project.pk remark.pk %}" enctype="multipart/form-data" data-once>{% csrf_token %}
 <input type="hidden" name="version" value="{{ remark.version }}">
 <div class="field"><label for="remark-text">Комментарий</label><textarea id="remark-text" name="text" rows="3" placeholder="Ответ, уточнение или что сделано"></textarea></div>
 <div class="field"><label for="remark-images">Фото (необязательно)</label><input id="remark-images" type="file" name="images" accept="image/jpeg,image/png,image/webp" multiple><div class="help">Например, фото устранённого дефекта. JPEG, PNG, WebP.</div></div>

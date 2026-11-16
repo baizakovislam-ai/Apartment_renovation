@@ -36,7 +36,7 @@ def project_detail(request, project_id):
     progress = task_services.project_progress(project)
     membership = active_membership(project, request.user)
     next_steps = None
-    if project.status == "planning" and not project.is_archived and membership.role in ("customer", "foreman"):
+    if project.status == "planning" and not project.is_read_only and membership.role in ("customer", "foreman"):
         members = project.members.filter(is_active=True)
         next_steps = [
             ("Пригласить прораба", members.filter(role="foreman").exists() or project.invitations.filter(status="pending", role="foreman").exists(), reverse("workspace:members", args=[project.pk])),
@@ -59,8 +59,8 @@ def project_detail(request, project_id):
 def project_edit(request, project_id):
     project = own_project(request, project_id)
     check_permission(require_customer, project, request.user)
-    if project.is_archived:
-        messages.error(request, project_services.ARCHIVED_MESSAGE)
+    if project.is_read_only:
+        messages.error(request, project_services.ARCHIVED_MESSAGE if project.is_archived else project_services.COMPLETED_MESSAGE)
         return redirect("workspace:project", project_id=project.pk)
     form = ProjectForm(request.POST or None, project=project)
     if request.method == "POST" and form.is_valid():
@@ -300,8 +300,8 @@ def remark_detail(request, project_id, remark_id):
     project = own_project(request, project_id)
     remark = visible_remark(request, project, remark_id)
     member = active_membership(project, request.user)
-    can_judge = quality_services.can_judge(remark, member) and not project.is_archived
-    can_fix = (remark.responsible_id == member.pk or member.role == "foreman") and not project.is_archived
+    can_judge = quality_services.can_judge(remark, member) and not project.is_read_only
+    can_fix = (remark.responsible_id == member.pk or member.role == "foreman") and not project.is_read_only
     comments = remark.comments.select_related("author").prefetch_related("photos")
     events = project.events.filter(data__remark_id=remark.pk).select_related("actor")[:30]
     return render(request, "workspace/remark_detail.html", context(
@@ -314,7 +314,7 @@ def remark_edit(request, project_id, remark_id):
     project = own_project(request, project_id)
     remark = visible_remark(request, project, remark_id)
     member = active_membership(project, request.user)
-    if not quality_services.can_judge(remark, member) or remark.status != "open" or project.is_archived:
+    if not quality_services.can_judge(remark, member) or remark.status != "open" or project.is_read_only:
         raise PermissionDenied("Изменить можно только открытое замечание — автору или заказчику.")
     author = project.members.filter(user=remark.created_by).first()
     form = RemarkEditForm(request.POST or None, remark=remark, author_role=author.role if author else member.role)

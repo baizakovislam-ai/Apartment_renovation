@@ -181,7 +181,8 @@ def deadline_notes(today):
     from apps.quality.models import Remark
     from apps.repairs.models import Stage, Task
     soon = today + timedelta(days=DUE_SOON_DAYS)
-    live = {"project__archived_at__isnull": True}
+    # No reminders for archived or completed projects: nothing can be changed there any more.
+    live = {"project__archived_at__isnull": True, "project__status__in": ("planning", "in_progress")}
     result = []  # (project, Note with .key)
 
     def add(project, user, kind, title, text, link, key):

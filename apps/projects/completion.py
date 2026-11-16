@@ -11,7 +11,7 @@ from apps.repairs.models import Stage
 @atomic_operation
 def complete_project(*, project, actor):
     """Complete a project only after every non-cancelled stage is accepted."""
-    project = lock_project(project)
+    project = lock_project(project, allow_completed=True)  # so a repeated request gets the precise reason below
     require_customer(project, actor)
     if project.status == Project.Status.COMPLETED:
         raise ValidationError("Проект уже завершён.")

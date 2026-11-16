@@ -95,7 +95,7 @@ def event_label(action):
             "estimate.submitted": "Смета отправлена на согласование", "estimate.withdrawn": "Смета отозвана в черновик",
             "estimate.approved": "Смета утверждена", "estimate.rejected": "Смета отклонена",
             "calculation.created": "Создан предварительный расчёт", "calculation.deleted": "Удалён предварительный расчёт",
-            "calculation.to_estimate": "Расчёт перенесён в смету", "project.started": "Работы по проекту запущены",
+            "calculation.to_estimate": "Расчёт перенесён в смету", "project.started": "Работы по проекту запущены", "project.completed": "Проект завершён",
             "estimate_change.created": "Создана заявка на изменение сметы", "estimate_change.updated": "Изменена заявка на изменение сметы",
             "estimate_change.deleted": "Удалён черновик заявки на изменение сметы",
             "estimate_change.item_set": "Изменена позиция в заявке на изменение сметы",

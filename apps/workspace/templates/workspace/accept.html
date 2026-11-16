@@ -15,6 +15,7 @@
 </form>
 {% elif invitation.status == 'accepted' %}<div class="notice notice--success">Приглашение уже принято.</div><a class="button button--primary" href="{% url 'workspace:project' invitation.project.pk %}">Открыть проект</a>
 {% elif invitation.project.is_archived %}<div class="notice">Проект в архиве — присоединиться к нему сейчас нельзя.</div>
+{% elif invitation.project.is_completed %}<div class="notice">Проект уже завершён — присоединиться к нему нельзя.</div>
 {% elif expired %}<div class="notice">Срок действия приглашения истёк. Попросите прислать новое.</div>
 {% else %}<div class="notice">Приглашение {{ invitation.get_status_display|lower }}. Если вы всё ещё хотите присоединиться, попросите прислать новое.</div>{% endif %}
 </section>{% endblock %}

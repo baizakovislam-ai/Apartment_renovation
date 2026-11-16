@@ -19,9 +19,9 @@
 <div class="metrics">
 <div class="metric">
 <div class="metric__icon metric__icon--blue">{% icon 'tasks' %}</div>
-<span>{% if is_manager %}Открытые задачи{% else %}Мои открытые задачи{% endif %}</span>
-<strong>{% if is_manager %}{{ open_task_count }}{% else %}{{ my_open_tasks }}{% endif %}</strong>
-<small>{% if is_manager %}Ещё не подтверждены{% else %}Назначены вам{% endif %}</small>
+<span>{% if nav_manager %}Открытые задачи{% else %}Мои открытые задачи{% endif %}</span>
+<strong>{% if nav_manager %}{{ open_task_count }}{% else %}{{ my_open_tasks }}{% endif %}</strong>
+<small>{% if nav_manager %}Ещё не подтверждены{% else %}Назначены вам{% endif %}</small>
 </div>
 <div class="metric">
 <div class="metric__icon metric__icon--teal">{% icon 'users' %}</div>
@@ -33,13 +33,13 @@
 <div class="metric__icon metric__icon--green">{% icon 'check' %}</div>
 <span>На проверке</span>
 <strong>{{ review_count }}</strong>
-<small>{% if is_manager %}Задачи ждут подтверждения{% else %}Ваши задачи ждут проверки{% endif %}</small>
+<small>{% if nav_manager %}Задачи ждут подтверждения{% else %}Ваши задачи ждут проверки{% endif %}</small>
 </div>
 <div class="metric">
 <div class="metric__icon metric__icon--orange">{% icon 'alert' %}</div>
 <span>Просроченные задачи</span>
 <strong>{{ overdue_count }}</strong>
-<small>{% if is_manager %}Требуют внимания к срокам{% else %}Ваши задачи с прошедшим сроком{% endif %}</small>
+<small>{% if nav_manager %}Требуют внимания к срокам{% else %}Ваши задачи с прошедшим сроком{% endif %}</small>
 </div>
 </div>
 <div class="dashboard-grid">
