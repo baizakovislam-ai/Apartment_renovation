@@ -83,7 +83,7 @@ def expense_detail(request, project_id, expense_id):
     project = finance_project(request, project_id)
     expense = visible_expense(request, project, expense_id)
     membership = active_membership(project, request.user)
-    editable = not project.is_archived
+    editable = not project.is_read_only
     events = project.events.filter(data__expense_id=expense.pk).select_related("actor")[:30]
     return render(request, "workspace/expense_detail.html", context(
         request, project, "expenses", expense=expense, events=events,
@@ -95,7 +95,7 @@ def expense_detail(request, project_id, expense_id):
 def expense_edit(request, project_id, expense_id):
     project = finance_project(request, project_id)
     expense = visible_expense(request, project, expense_id)
-    if not (expense.is_editable and expense_services.is_author(expense, request.user)) or project.is_archived:
+    if not (expense.is_editable and expense_services.is_author(expense, request.user)) or project.is_read_only:
         raise PermissionDenied("Изменять можно только свой черновик расхода.")
     membership = active_membership(project, request.user)
     form = ExpenseForm(request.POST or None, request.FILES or None, project=project, expense=expense, author_role=membership.role)

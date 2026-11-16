@@ -1,14 +1,14 @@
 {% extends 'workspace/base.html' %}{% load workspace_ui %}{% block title %}Задачи{% endblock %}{% block content %}<div class="page-title">
 <div>
 <span class="eyebrow">Исполнение и сроки</span>
-<h1>{% if is_manager %}Задачи{% else %}Мои задачи{% endif %}</h1>
-<p>{% if is_manager %}Все задачи проекта «{{ project.name }}» с исполнителями и сроками.{% else %}Задачи, назначенные вам в проекте «{{ project.name }}».{% endif %}</p>
+<h1>{% if nav_manager %}Задачи{% else %}Мои задачи{% endif %}</h1>
+<p>{% if nav_manager %}Все задачи проекта «{{ project.name }}» с исполнителями и сроками.{% else %}Задачи, назначенные вам в проекте «{{ project.name }}».{% endif %}</p>
 </div>{% if is_manager %}<a class="button button--primary" href="{% url 'workspace:task-create' project.pk %}">{% icon 'plus' %} Новая задача</a>{% endif %}</div>
 <form class="toolbar filter-form" method="get">
 <label class="search">{% icon 'search' %}<input name="q" value="{{ filters.q }}" placeholder="Поиск задачи" aria-label="Поиск задачи"></label>
 <select name="status" aria-label="Статус задачи"><option value="">Все статусы</option>{% for value, label in task_statuses %}<option value="{{ value }}" {% if filters.status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
 <select name="stage" aria-label="Этап"><option value="">Все этапы</option>{% for stage in stage_options %}<option value="{{ stage.pk }}" {% if filters.stage == stage.pk|stringformat:'s' %}selected{% endif %}>{{ stage.name }}</option>{% endfor %}</select>
-{% if is_manager %}<select name="assignee" aria-label="Исполнитель"><option value="">Все исполнители</option>{% for member in executors %}<option value="{{ member.pk }}" {% if filters.assignee == member.pk|stringformat:'s' %}selected{% endif %}>{{ member.user|display_name }}</option>{% endfor %}</select>{% endif %}
+{% if nav_manager %}<select name="assignee" aria-label="Исполнитель"><option value="">Все исполнители</option>{% for member in executors %}<option value="{{ member.pk }}" {% if filters.assignee == member.pk|stringformat:'s' %}selected{% endif %}>{{ member.user|display_name }}</option>{% endfor %}</select>{% endif %}
 <select name="deadline" aria-label="Срок"><option value="">Любой срок</option>{% for value, label in deadline_options %}<option value="{{ value }}" {% if filters.deadline == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
 <select name="sort" aria-label="Сортировка">{% for value, label in sort_options %}<option value="{{ value }}" {% if filters.sort == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
 <button class="button button--primary" type="submit">Применить</button>

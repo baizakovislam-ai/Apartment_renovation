@@ -47,18 +47,20 @@ def context(request, project=None, page="dashboard", **extra):
     membership = active_membership(project, request.user) if project else None
     role = membership.role if membership else None
     archived = bool(project and project.is_archived)
+    read_only = bool(project and project.is_read_only)
     return {
         "projects": own_projects(request.user, include_archived=False), "project": project, "membership": membership,
-        # Action buttons disappear in an archived project; navigation still follows the role.
-        "is_customer": role == "customer" and not archived,
-        "is_manager": role in ("customer", "foreman") and not archived,
+        # Action buttons disappear in an archived or completed project; navigation and viewing still follow the role.
+        "is_customer": role == "customer" and not read_only,
+        "is_manager": role in ("customer", "foreman") and not read_only,
         "nav_manager": role in ("customer", "foreman"),
         "is_archived": archived,
+        "is_read_only": read_only,
         "incoming_count": project_services.pending_invitations_for(request.user).count(),
         "unread_notifications": notification_services.unread_count(request.user),
         "keeps_price_list": price_services.is_foreman(request.user),
         # The customer sees how many expenses wait for a decision right in the menu (FR12).
-        "pending_expenses": project.expenses.filter(status="pending").count() if role == "customer" and not archived else 0,
+        "pending_expenses": project.expenses.filter(status="pending").count() if role == "customer" and not read_only else 0,
         "page": page, "today": timezone.localdate(), **extra,
     }
 
@@ -100,7 +102,7 @@ def attention_items(project, user):
     from apps.estimates import services as estimate_services
     from apps.quality.models import Remark
     member = active_membership(project, user)
-    if member is None or project.is_archived:
+    if member is None or project.is_read_only:
         return []
     url = lambda name, *args: reverse(f"workspace:{name}", args=[project.pk, *args])
     items = []
@@ -261,7 +263,7 @@ def invitation_link(request, invitation):
 def members(request, project_id):
     project = own_project(request, project_id)
     membership = active_membership(project, request.user)
-    can_invite = membership.role in ("customer", "foreman") and not project.is_archived
+    can_invite = membership.role in ("customer", "foreman") and not project.is_read_only
     form = InvitationForm(request.POST or None, inviter_role=membership.role)
     if request.method == "POST":
         if not can_invite:
@@ -285,7 +287,7 @@ def members(request, project_id):
         for invitation in invitations:
             invitation.accept_url = invitation_link(request, invitation)
             invitation.expired = invitation.status == "pending" and invitation.expires_at <= timezone.now()
-            invitation.can_cancel = invitation.status == "pending" and not invitation.expired and not project.is_archived and (
+            invitation.can_cancel = invitation.status == "pending" and not invitation.expired and not project.is_read_only and (
                 membership.role == "customer" or invitation.invited_by_id == request.user.pk)
     team = list(project.members.filter(is_active=True).select_related("user"))
     for member in team:
@@ -344,7 +346,7 @@ def accept(request, token):
             messages.success(request, f"Вы присоединились к проекту «{invitation.project.name}».")
             return redirect("workspace:project", project_id=member.project_id)
     expired = invitation.expires_at <= timezone.now()
-    available = invitation.status == "pending" and not expired and not invitation.project.is_archived
+    available = invitation.status == "pending" and not expired and not invitation.project.is_read_only
     return render(request, "workspace/accept.html", context(request, page="projects", invitation=invitation, available=available,
                   own_email=own_email, expired=expired, error=error,
                   relogin_url=reverse("accounts:login") + "?next=" + reverse("workspace:accept", args=[token])))

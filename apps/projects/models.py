@@ -52,6 +52,15 @@ class Project(models.Model):
     def is_archived(self):
         return self.archived_at is not None
 
+    @property
+    def is_completed(self):
+        return self.status == self.Status.COMPLETED
+
+    @property
+    def is_read_only(self):
+        """Archived and completed projects keep their data but accept no changes (ТЗ FR18, 4.12)."""
+        return self.is_archived or self.is_completed
+
 
 class ProjectMember(models.Model):
     class Role(models.TextChoices):

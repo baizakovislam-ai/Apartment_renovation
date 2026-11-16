@@ -26,7 +26,7 @@
 <div><dt>Адрес</dt><dd>{{ project.address|default:'—' }}</dd></div>
 <div><dt>Площадь</dt><dd>{% if project.area %}{{ project.area }} м²{% else %}—{% endif %}</dd></div>
 <div><dt>Сроки ремонта</dt><dd>{% if project.start_date or project.end_date %}{{ project.start_date|date:'d.m.Y'|default:'…' }} — {{ project.end_date|date:'d.m.Y'|default:'…' }}{% else %}—{% endif %}</dd></div>
-{% if is_manager %}<div><dt>Лимит бюджета</dt><dd>{{ project.budget|money }}</dd></div>{% endif %}
+{% if nav_manager %}<div><dt>Лимит бюджета</dt><dd>{{ project.budget|money }}</dd></div>{% endif %}
 <div><dt>Создан</dt><dd>{{ project.created_at|date:'d E Y' }} · {{ project.created_by|display_name }}</dd></div>
 <div><dt>Команда</dt><dd>{{ project.member_count }} участн.</dd></div>
 </dl>
@@ -51,11 +51,14 @@
 <form method="post" action="{% url 'workspace:project-complete' project.pk %}" data-confirm="Завершить проект «{{ project.name }}»? После этого изменить его нельзя.">{% csrf_token %}<button class="button button--primary" type="submit">Завершить проект</button></form>
 </section>{% endif %}
 {% if is_owner %}<section class="card danger-zone" id="danger">
-<div class="danger-zone__part">
+{% if project.is_completed %}<div class="danger-zone__part">
+<h2>Удалить проект</h2>
+<p class="muted-text">Завершённый проект удалить нельзя: это итоговая запись о ремонте. Его можно отправить в архив.</p>
+</div>{% else %}<div class="danger-zone__part">
 <h2>Удалить проект</h2>
 <p class="muted-text">Проект удалится полностью и пропадёт у всех участников{% if other_members %} ({{ other_members }} чел. потеряют доступ){% endif %}: этапы, задачи, фотоотчёты, замечания, сметы, расчёты, приглашения и история.{% if delete_summary %} Сейчас в проекте — {{ delete_summary|join:', ' }}.{% endif %} Восстановить будет нельзя.</p>
 <form method="post" action="{% url 'workspace:project-delete' project.pk %}" data-confirm="Удалить проект «{{ project.name }}» со всеми данными у всех участников? Восстановить будет нельзя.">{% csrf_token %}<button class="button button--outline-danger" type="submit">Удалить проект</button></form>
-</div>
+</div>{% endif %}
 {% if not is_archived %}<div class="danger-zone__part">
 <h2>Отправить в архив</h2>
 <p class="muted-text">Проект скроется из списка, данные и история сохранятся. Вернуть можно в любой момент.</p>
